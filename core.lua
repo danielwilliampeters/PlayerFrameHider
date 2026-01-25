@@ -58,7 +58,7 @@ end
 local function ResolveWidgetFramesOnce()
   EssentialCDFrame = EssentialCDFrame or _G.EssentialCooldownsFrame or FindFrameByNameHint("EssentialCooldown")
   UtilityCDFrame = UtilityCDFrame or _G.UtilityCooldownsFrame or _G.UtilityCooldownFrame or _G.UtilityCooldowns or FindFrameByNameHint("UtilityCooldown")
-  TrackedBuffsFrame = TrackedBuffsFrame or _G.TrackedBuffsFrame or _G.TrackedBuffFrame or _G.TrackedBuffs or FindFrameByNameHint("TrackedBuff")
+  TrackedBuffsFrame = TrackedBuffsFrame or _G.TrackedBuffsFrame or _G.TrackedBuffFrame or _G.TrackedBuffs or FindFrameByNameHint("BuffIconCooldownViewer")
 end
 
 local function ResolveWidgetFramesWithRetries()
