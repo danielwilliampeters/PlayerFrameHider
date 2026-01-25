@@ -2,7 +2,7 @@ local eventFrame = CreateFrame("Frame")
 
 PFH_DB = PFH_DB or {}
 
-local VERSION = "1.1.4"
+local VERSION = "1.1.5"
 local HURT_GRACE_SECONDS = 3
 local OPTION_PANEL_NAME = "PlayerFrameHider"
 
@@ -219,7 +219,7 @@ local function ShouldShowWidgets()
     end
   end
 
-  return InCombatLockdown() or UnitExists("target")
+  return InCombatLockdown() or (UnitExists("target") and UnitCanAttack("player", "target"))
 end
 
 local function ApplyWidget(frame, enabled)
@@ -310,6 +310,7 @@ eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 eventFrame:RegisterEvent("UNIT_HEALTH")
 eventFrame:RegisterEvent("UNIT_MAXHEALTH")
 eventFrame:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED")
@@ -333,7 +334,7 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
 
   HookOnce()
 
-  if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+  if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" or event == "ZONE_CHANGED_NEW_AREA" then
     Apply()
     return
   end
