@@ -2,8 +2,8 @@ local eventFrame = CreateFrame("Frame")
 
 PFH_DB = PFH_DB or {}
 
-local VERSION = "1.1.3"
-local HURT_GRACE_SECONDS = 8
+local VERSION = "1.1.4"
+local HURT_GRACE_SECONDS = 3
 local OPTION_PANEL_NAME = "PlayerFrameHider"
 
 local hurtUntil = 0
@@ -25,6 +25,7 @@ local function ApplyDefaults()
   if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = false end
   if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = false end
   if PFH_DB.controlTrackedBuffs == nil then PFH_DB.controlTrackedBuffs = false end
+  if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = true end
 end
 
 local function OpenOptions()
@@ -129,23 +130,21 @@ local function CreateOptionsPanel()
       return checkbox
     end
 
-    local playerFrameHeader = CreateSectionHeader(subtitle, "Player Frame Settings", -20)
+    -- General settings
+    local generalHeader = CreateSectionHeader(subtitle, "General Settings", -20)
+    local generalDesc = CreateDescription(generalHeader, "Global behavior that applies in all views", -4)
+    local cbInstance = CreateCheckbox(generalDesc, "Always show in dungeons/raids/battlegrounds/delves", "alwaysShowInInstance", -8)
+
+    -- Player frame settings
+    local playerFrameHeader = CreateSectionHeader(cbInstance, "Player Frame Settings", -20)
     local playerFrameDesc = CreateDescription(playerFrameHeader, "Configure when the player frame should be visible", -4)
 
     local cb1 = CreateCheckbox(playerFrameDesc, "Hide player frame out of combat", "hideOutOfCombat", -8)
     local cb2 = CreateCheckbox(cb1, "Show player frame when health below 100%", "showWhenHealthBelow100", -4)
-    
-    local healthDesc = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    healthDesc:SetPoint("TOPLEFT", cb2, "BOTTOMLEFT", 24, 0)
-    healthDesc:SetText("Player frame will show for 8 seconds after taking damage")
-    healthDesc:SetTextColor(0.6, 0.6, 0.6)
-    healthDesc:SetJustifyH("LEFT")
-    healthDesc:SetWidth(520)
 
-    local widgetsHeader = CreateSectionHeader(healthDesc, "Edit Mode Widgets", -20)
-    widgetsHeader:SetPoint("TOPLEFT", healthDesc, "BOTTOMLEFT", -24, -20)
-    
-    local widgetsDesc = CreateDescription(widgetsHeader, "Hide Edit Mode widgets out of combat (they will show in combat or when you have a target)", -4)
+    -- Cooldowns widgets
+    local widgetsHeader = CreateSectionHeader(cb2, "Cooldowns settings", -20)
+    local widgetsDesc = CreateDescription(widgetsHeader, "Hide cooldowns out of combat (they will show in combat or when you have a target)", -4)
 
     local cb3 = CreateCheckbox(widgetsDesc, "Control Essential Cooldowns visibility", "controlEssentialCooldowns", -8)
     local cb4 = CreateCheckbox(cb3, "Control Utility Cooldowns visibility", "controlUtilityCooldowns", -4)
@@ -170,6 +169,7 @@ local function CreateOptionsPanel()
     panel:SetScript("OnShow", function()
       cb1:SetChecked(PFH_DB.hideOutOfCombat)
       cb2:SetChecked(PFH_DB.showWhenHealthBelow100)
+      cbInstance:SetChecked(PFH_DB.alwaysShowInInstance)
       cb3:SetChecked(PFH_DB.controlEssentialCooldowns)
       cb4:SetChecked(PFH_DB.controlUtilityCooldowns)
       cb5:SetChecked(PFH_DB.controlTrackedBuffs)
@@ -197,6 +197,13 @@ local function MarkHurt()
 end
 
 local function ShouldShowPlayerFrame()
+  if PFH_DB.alwaysShowInInstance then
+    local inInstance, instanceType = IsInInstance()
+    if inInstance and (instanceType == "party" or instanceType == "raid" or instanceType == "pvp" or instanceType == "arena" or instanceType == "scenario") then
+      return true
+    end
+  end
+
   if InCombatLockdown() then return true end
   if not PFH_DB.hideOutOfCombat then return true end
   if UnitExists("target") then return true end
@@ -205,6 +212,13 @@ local function ShouldShowPlayerFrame()
 end
 
 local function ShouldShowWidgets()
+  if PFH_DB.alwaysShowInInstance then
+    local inInstance, instanceType = IsInInstance()
+    if inInstance and (instanceType == "party" or instanceType == "raid" or instanceType == "pvp" or instanceType == "arena" or instanceType == "scenario") then
+      return true
+    end
+  end
+
   return InCombatLockdown() or UnitExists("target")
 end
 
