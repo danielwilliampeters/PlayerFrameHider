@@ -2,7 +2,7 @@ local eventFrame = CreateFrame("Frame")
 
 PFH_DB = PFH_DB or {}
 
-local VERSION = "1.1.1"
+local VERSION = "1.1.3"
 local HURT_GRACE_SECONDS = 8
 local OPTION_PANEL_NAME = "PlayerFrameHider"
 
