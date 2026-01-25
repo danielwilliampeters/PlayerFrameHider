@@ -2,7 +2,7 @@
 ## Title: PlayerFrameHider
 ## Notes: Lets you toggle visibility rules for the PlayerFrame and cooldown/buff widgets via an in-game options panel.
 ## Author: Daniel Peters
-## Version: 1.1.3
+## Version: 1.1.4
 ## SavedVariables: PFH_DB
 
 core.lua
