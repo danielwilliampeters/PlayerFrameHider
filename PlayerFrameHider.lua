@@ -1,6 +1,8 @@
 -- PlayerFrameHider
 
 local ADDON_NAME = ...
+local VERSION = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or "dev"
+
 local eventFrame = CreateFrame("Frame")
 
 PFH_DB = PFH_DB or {}
@@ -8,7 +10,6 @@ PFH_DB = PFH_DB or {}
 -- =========================================================
 -- Constants / State
 -- =========================================================
-local VERSION = "1.1.8"
 local OPTION_PANEL_NAME = "PlayerFrameHider"
 local HURT_GRACE_SECONDS = 3
 
