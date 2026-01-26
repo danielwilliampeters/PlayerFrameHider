@@ -2,7 +2,7 @@ local eventFrame = CreateFrame("Frame")
 
 PFH_DB = PFH_DB or {}
 
-local VERSION = "1.1.5"
+local VERSION = "1.1.6"
 local HURT_GRACE_SECONDS = 3
 local OPTION_PANEL_NAME = "PlayerFrameHider"
 
@@ -20,7 +20,17 @@ local UtilityCDFrame
 local TrackedBuffsFrame
 
 local function ApplyDefaults()
-  if PFH_DB.hideOutOfCombat == nil then PFH_DB.hideOutOfCombat = true end
+  -- Migrate old setting to new "hidePlayerFrame" toggle, if present
+  if PFH_DB.hidePlayerFrame == nil then
+    if PFH_DB.hideOutOfCombat ~= nil then
+      PFH_DB.hidePlayerFrame = PFH_DB.hideOutOfCombat and true or false
+    else
+      PFH_DB.hidePlayerFrame = true
+    end
+  end
+
+  if PFH_DB.showInCombat == nil then PFH_DB.showInCombat = true end
+  if PFH_DB.showIfTarget == nil then PFH_DB.showIfTarget = true end
   if PFH_DB.showWhenHealthBelow100 == nil then PFH_DB.showWhenHealthBelow100 = true end
   if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = false end
   if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = false end
@@ -139,11 +149,13 @@ local function CreateOptionsPanel()
     local playerFrameHeader = CreateSectionHeader(cbInstance, "Player Frame Settings", -20)
     local playerFrameDesc = CreateDescription(playerFrameHeader, "Configure when the player frame should be visible", -4)
 
-    local cb1 = CreateCheckbox(playerFrameDesc, "Hide player frame out of combat", "hideOutOfCombat", -8)
-    local cb2 = CreateCheckbox(cb1, "Show player frame when health below 100%", "showWhenHealthBelow100", -4)
+    local cbHide = CreateCheckbox(playerFrameDesc, "Hide player frame", "hidePlayerFrame", -8)
+    local cbCombat = CreateCheckbox(cbHide, "Show player frame in combat", "showInCombat", -4)
+    local cbTarget = CreateCheckbox(cbCombat, "Show player frame if target", "showIfTarget", -4)
+    local cbHealth = CreateCheckbox(cbTarget, "Show player frame when health below 100%", "showWhenHealthBelow100", -4)
 
     -- Cooldowns widgets
-    local widgetsHeader = CreateSectionHeader(cb2, "Cooldowns settings", -20)
+    local widgetsHeader = CreateSectionHeader(cbHealth, "Cooldowns settings", -20)
     local widgetsDesc = CreateDescription(widgetsHeader, "Hide cooldowns out of combat (they will show in combat or when you have a target)", -4)
 
     local cb3 = CreateCheckbox(widgetsDesc, "Control Essential Cooldowns visibility", "controlEssentialCooldowns", -8)
@@ -167,8 +179,10 @@ local function CreateOptionsPanel()
     btn:SetScript("OnClick", ReloadUI)
 
     panel:SetScript("OnShow", function()
-      cb1:SetChecked(PFH_DB.hideOutOfCombat)
-      cb2:SetChecked(PFH_DB.showWhenHealthBelow100)
+      cbHide:SetChecked(PFH_DB.hidePlayerFrame)
+      cbCombat:SetChecked(PFH_DB.showInCombat)
+      cbTarget:SetChecked(PFH_DB.showIfTarget)
+      cbHealth:SetChecked(PFH_DB.showWhenHealthBelow100)
       cbInstance:SetChecked(PFH_DB.alwaysShowInInstance)
       cb3:SetChecked(PFH_DB.controlEssentialCooldowns)
       cb4:SetChecked(PFH_DB.controlUtilityCooldowns)
@@ -204,9 +218,13 @@ local function ShouldShowPlayerFrame()
     end
   end
 
-  if InCombatLockdown() then return true end
-  if not PFH_DB.hideOutOfCombat then return true end
-  if UnitExists("target") then return true end
+  -- If not hiding the player frame at all, always show it
+  if not PFH_DB.hidePlayerFrame then
+    return true
+  end
+
+  if PFH_DB.showInCombat and InCombatLockdown() then return true end
+  if PFH_DB.showIfTarget and UnitExists("target") then return true end
   if PFH_DB.showWhenHealthBelow100 and GetTime() < hurtUntil then return true end
   return false
 end

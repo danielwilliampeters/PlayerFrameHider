@@ -4,9 +4,10 @@ A World of Warcraft addon that automatically manages the visibility of the Playe
 
 ## Features
 
-- **Auto-hide out of combat**: Automatically hides the player frame when you're not in combat
-- **Show on target**: Player frame appears when you have a target selected
-- **Health awareness**: Optionally shows the player frame when your health drops below 100%
+- **Configurable player frame visibility**: Hide the player frame by default and choose when it should automatically reappear
+- **Show in combat**: Optionally show the player frame whenever you enter combat
+- **Show on target**: Optionally show the player frame when you have a target selected
+- **Health awareness**: Optionally show the player frame when your health drops below 100%
 - **Instance-aware**: Option to always show the player frame and widgets while in dungeons, raids, battlegrounds, or delves
 - **Edit Mode widget control**: Hide Essential Cooldowns, Utility Cooldowns, and Tracked Buffs out of combat
 - **Improved UI**: Categorized options panel with clear sections and helpful descriptions
@@ -39,7 +40,9 @@ Access the options panel via:
 
 **Player Frame Settings:**
 
-- **Hide player frame out of combat** - Automatically hides the player frame when not in combat.
+- **Hide player frame** - When enabled, the player frame is hidden by default unless one of the "show when" conditions below is met.
+- **Show player frame in combat** - Shows the player frame whenever you are in combat.
+- **Show player frame if target** - Shows the player frame when you have a target selected.
 - **Show player frame when health below 100%** - Shows the frame when you take damage (with a 3-second grace period).
 
 **Cooldowns Settings:**
@@ -52,10 +55,12 @@ Access the options panel via:
 
 The addon intelligently manages the player frame visibility based on your combat state, target, and health:
 
-1. **Always shows** the player frame when in combat
-2. **Always shows** the player frame when you have a target
-3. **Optionally shows** the player frame when your health is below 100% (configurable)
-4. **Hides** the player frame when out of combat and no target exists
+1. If **Hide player frame** is disabled, the player frame is always shown.
+2. If **Hide player frame** is enabled, the player frame only shows when at least one enabled condition is true:
+   - **Show player frame in combat**
+   - **Show player frame if target**
+   - **Show player frame when health below 100%** (with a short grace period after taking damage)
+3. **Always shows** the player frame (and supported widgets) in instances if **Always show in dungeons/raids/battlegrounds/delves** is enabled.
 
 ## License
 
