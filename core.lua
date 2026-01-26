@@ -2,7 +2,7 @@ local eventFrame = CreateFrame("Frame")
 
 PFH_DB = PFH_DB or {}
 
-local VERSION = "1.1.6"
+local VERSION = "1.1.7"
 local HURT_GRACE_SECONDS = 3
 local OPTION_PANEL_NAME = "PlayerFrameHider"
 
@@ -19,6 +19,12 @@ local EssentialCDFrame
 local UtilityCDFrame
 local TrackedBuffsFrame
 
+-- Track combat ourselves (more reliable than InCombatLockdown timing for UI decisions)
+local inCombat = false
+
+-- Track our "hidden" state (alpha-based) so combat lockdown doesn't break "show in combat"
+local playerFrameHidden = false
+
 local function ApplyDefaults()
   -- Migrate old setting to new "hidePlayerFrame" toggle, if present
   if PFH_DB.hidePlayerFrame == nil then
@@ -32,9 +38,11 @@ local function ApplyDefaults()
   if PFH_DB.showInCombat == nil then PFH_DB.showInCombat = true end
   if PFH_DB.showIfTarget == nil then PFH_DB.showIfTarget = true end
   if PFH_DB.showWhenHealthBelow100 == nil then PFH_DB.showWhenHealthBelow100 = true end
+
   if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = false end
   if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = false end
   if PFH_DB.controlTrackedBuffs == nil then PFH_DB.controlTrackedBuffs = false end
+
   if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = true end
 end
 
@@ -53,7 +61,6 @@ end
 SLASH_PlayerFrameHider1 = "/pfh"
 SLASH_PlayerFrameHider2 = "/playerframehider"
 SlashCmdList["PlayerFrameHider"] = OpenOptions
-
 
 local function FindFrameByNameHint(hint)
   for k, v in pairs(_G) do
@@ -80,7 +87,7 @@ local function ResolveWidgetFramesWithRetries()
     ResolveWidgetFramesOnce()
 
     local needAny = PFH_DB.controlEssentialCooldowns or PFH_DB.controlUtilityCooldowns or PFH_DB.controlTrackedBuffs
-    local haveEnough = not needAny or 
+    local haveEnough = not needAny or
       ((not PFH_DB.controlEssentialCooldowns or EssentialCDFrame) and
        (not PFH_DB.controlUtilityCooldowns or UtilityCDFrame) and
        (not PFH_DB.controlTrackedBuffs or TrackedBuffsFrame))
@@ -92,7 +99,6 @@ local function ResolveWidgetFramesWithRetries()
     end
   end)
 end
-
 
 local function CreateOptionsPanel()
   if optionsCreated then return end
@@ -184,6 +190,7 @@ local function CreateOptionsPanel()
       cbTarget:SetChecked(PFH_DB.showIfTarget)
       cbHealth:SetChecked(PFH_DB.showWhenHealthBelow100)
       cbInstance:SetChecked(PFH_DB.alwaysShowInInstance)
+
       cb3:SetChecked(PFH_DB.controlEssentialCooldowns)
       cb4:SetChecked(PFH_DB.controlUtilityCooldowns)
       cb5:SetChecked(PFH_DB.controlTrackedBuffs)
@@ -205,39 +212,80 @@ local function CreateOptionsPanel()
   end
 end
 
-
 local function MarkHurt()
   hurtUntil = GetTime() + HURT_GRACE_SECONDS
 end
 
+local function IsAlwaysShowInstance()
+  if not PFH_DB.alwaysShowInInstance then return false end
+  local inInstance, instanceType = IsInInstance()
+  if not inInstance then return false end
+  return instanceType == "party"
+    or instanceType == "raid"
+    or instanceType == "pvp"
+    or instanceType == "arena"
+    or instanceType == "scenario"
+    or instanceType == "delve"
+end
+
+local function IsInCombat()
+  return inCombat or (UnitAffectingCombat("player") and true or false)
+end
+
+local function HasEnemyTarget()
+  return UnitExists("target") and UnitCanAttack("player", "target")
+end
+
 local function ShouldShowPlayerFrame()
-  if PFH_DB.alwaysShowInInstance then
-    local inInstance, instanceType = IsInInstance()
-    if inInstance and (instanceType == "party" or instanceType == "raid" or instanceType == "pvp" or instanceType == "arena" or instanceType == "scenario") then
-      return true
-    end
+  if IsAlwaysShowInstance() then
+    return true
   end
 
-  -- If not hiding the player frame at all, always show it
+  -- If not hiding at all, always show
   if not PFH_DB.hidePlayerFrame then
     return true
   end
 
-  if PFH_DB.showInCombat and InCombatLockdown() then return true end
+  if PFH_DB.showInCombat and IsInCombat() then return true end
   if PFH_DB.showIfTarget and UnitExists("target") then return true end
   if PFH_DB.showWhenHealthBelow100 and GetTime() < hurtUntil then return true end
+
   return false
 end
 
 local function ShouldShowWidgets()
-  if PFH_DB.alwaysShowInInstance then
-    local inInstance, instanceType = IsInInstance()
-    if inInstance and (instanceType == "party" or instanceType == "raid" or instanceType == "pvp" or instanceType == "arena" or instanceType == "scenario") then
-      return true
-    end
+  if IsAlwaysShowInstance() then
+    return true
   end
 
-  return InCombatLockdown() or (UnitExists("target") and UnitCanAttack("player", "target"))
+  return IsInCombat() or HasEnemyTarget()
+end
+
+-- SAFE player frame visibility (alpha-based so combat lockdown doesn't break "show in combat")
+local function SetPlayerFrameVisible(wantVisible)
+  if not PlayerFrame then return end
+
+  -- If PlayerFrame is currently hidden (rare), ensure it is shown once out of combat.
+  -- During combat we only use alpha.
+  if wantVisible then
+    if playerFrameHidden then
+      playerFrameHidden = false
+      PlayerFrame:SetAlpha(1)
+      PlayerFrame:EnableMouse(true)
+    else
+      if PlayerFrame:GetAlpha() ~= 1 then PlayerFrame:SetAlpha(1) end
+      PlayerFrame:EnableMouse(true)
+    end
+  else
+    if not playerFrameHidden then
+      playerFrameHidden = true
+      PlayerFrame:SetAlpha(0)
+      PlayerFrame:EnableMouse(false)
+    else
+      if PlayerFrame:GetAlpha() ~= 0 then PlayerFrame:SetAlpha(0) end
+      PlayerFrame:EnableMouse(false)
+    end
+  end
 end
 
 local function ApplyWidget(frame, enabled)
@@ -261,11 +309,7 @@ function Apply()
   if not PlayerFrame then return end
 
   local showPlayer = ShouldShowPlayerFrame()
-  if showPlayer then
-    if not PlayerFrame:IsShown() then PlayerFrame:Show() end
-  else
-    if not InCombatLockdown() and PlayerFrame:IsShown() then PlayerFrame:Hide() end
-  end
+  SetPlayerFrameVisible(showPlayer)
 
   ApplyWidget(EssentialCDFrame, PFH_DB.controlEssentialCooldowns)
   ApplyWidget(UtilityCDFrame, PFH_DB.controlUtilityCooldowns)
@@ -287,10 +331,11 @@ end
 
 local function VetoIfNeeded()
   if suppress or not PlayerFrame then return end
+  if InCombatLockdown() then return end
 
-  if not ShouldShowPlayerFrame() and not InCombatLockdown() then
+  if not ShouldShowPlayerFrame() then
     suppress = true
-    PlayerFrame:Hide()
+    SetPlayerFrameVisible(false)
     suppress = false
   end
 end
@@ -322,7 +367,6 @@ local function Init()
   end)
 end
 
-
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -337,6 +381,8 @@ eventFrame:RegisterEvent("UNIT_HEAL_PREDICTION")
 eventFrame:SetScript("OnEvent", function(_, event, unit)
   if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
     ApplyDefaults()
+    inCombat = UnitAffectingCombat("player") and true or false
+
     CreateOptionsPanel()
     Init()
     ResolveWidgetFramesWithRetries()
@@ -352,7 +398,19 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
 
   HookOnce()
 
-  if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" or event == "ZONE_CHANGED_NEW_AREA" then
+  if event == "PLAYER_REGEN_DISABLED" then
+    inCombat = true
+    Apply()
+    return
+  end
+
+  if event == "PLAYER_REGEN_ENABLED" then
+    inCombat = false
+    Apply()
+    return
+  end
+
+  if event == "PLAYER_TARGET_CHANGED" or event == "ZONE_CHANGED_NEW_AREA" then
     Apply()
     return
   end
