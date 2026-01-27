@@ -372,7 +372,7 @@ local function CreateOptionsPanel()
     reloadNote:SetTextColor(1, 0.5, 0.25)
 
     local btn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    btn:SetSize(140, 28)
+    btn:SetSize(140, 22)
     btn:SetPoint("TOPLEFT", reloadNote, "BOTTOMLEFT", 0, -12)
     btn:SetText("Reload UI")
     btn:SetScript("OnClick", ReloadUI)
