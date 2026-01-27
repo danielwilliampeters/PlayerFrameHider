@@ -2,7 +2,7 @@
 ## Title: PlayerFrameHider
 ## Notes: Toggle visibility rules for the PlayerFrame and cooldowns/buffs.
 ## Author: Daniel Peters
-## Version: 1.1.9
+## Version: 1.1.10
 ## SavedVariables: PFH_DB
 
 PlayerFrameHider.lua

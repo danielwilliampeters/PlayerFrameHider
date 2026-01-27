@@ -25,6 +25,7 @@ local state = {
   optionsCreated = false,
   optionsCategory = nil,
   loadMessageShown = false,
+  didInit = false, -- guards double init between LOGIN / ENTERING_WORLD
 
   -- alpha-hidden tracking (combat-safe)
   playerFrameHidden = false,
@@ -160,18 +161,20 @@ end
 local function SetPlayerFrameVisible(wantVisible)
   if not PlayerFrame then return end
 
+  local inLockdown = InCombatLockdown()
+
   if wantVisible then
-    if state.playerFrameHidden then
-      state.playerFrameHidden = false
-    end
+    state.playerFrameHidden = false
     if PlayerFrame:GetAlpha() ~= 1 then PlayerFrame:SetAlpha(1) end
-    PlayerFrame:EnableMouse(true)
-  else
-    if not state.playerFrameHidden then
-      state.playerFrameHidden = true
+    if not inLockdown then
+      PlayerFrame:EnableMouse(true)
     end
+  else
+    state.playerFrameHidden = true
     if PlayerFrame:GetAlpha() ~= 0 then PlayerFrame:SetAlpha(0) end
-    PlayerFrame:EnableMouse(false)
+    if not inLockdown then
+      PlayerFrame:EnableMouse(false)
+    end
   end
 end
 
@@ -181,13 +184,10 @@ end
 local function ApplyWidget(frame, enabled)
   if not enabled or not frame then return end
 
-  local want = ShouldShowWidgets()
+  -- Never try to show/hide protected frames during combat.
+  if InCombatLockdown() then return end
 
-  -- in combat: avoid Hide() calls; allow Show() if needed
-  if InCombatLockdown() then
-    if want and not frame:IsShown() then pcall(frame.Show, frame) end
-    return
-  end
+  local want = ShouldShowWidgets()
 
   if want then
     if not frame:IsShown() then pcall(frame.Show, frame) end
@@ -332,6 +332,13 @@ local function CreateOptionsPanel()
 
       cb:SetScript("OnClick", function(self)
         PFH_DB[key] = self:GetChecked() and true or false
+
+        -- If the user disables the health-based show, stop any running ticker.
+        if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
+          StopHurtTicker()
+          state.hurtUntil = 0
+        end
+
         ResolveWidgetFramesOnce()
         Apply()
       end)
@@ -409,6 +416,14 @@ end
 -- Events
 -- =========================================================
 local function OnLogin()
+  if state.didInit then
+    -- Still refresh combat flag and apply, but don't re-run init/setup.
+    state.inCombat = UnitAffectingCombat("player") and true or false
+    Apply()
+    return
+  end
+  state.didInit = true
+
   ApplyDefaults()
   state.inCombat = UnitAffectingCombat("player") and true or false
 
