@@ -1,6 +1,6 @@
 ## Interface: 120000
 ## Title: PlayerFrameHider
-## Notes: Lets you toggle visibility rules for the PlayerFrame and cooldown/buff widgets via an in-game options panel.
+## Notes: Toggle visibility rules for the PlayerFrame and cooldowns/buffs.
 ## Author: Daniel Peters
 ## Version: 1.1.9
 ## SavedVariables: PFH_DB
