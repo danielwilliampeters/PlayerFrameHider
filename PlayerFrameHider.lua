@@ -40,6 +40,11 @@ local state = {
 -- DB defaults / migration
 -- =========================================================
 local function ApplyDefaults()
+  -- master enable
+  if PFH_DB.enabled == nil then
+    PFH_DB.enabled = true
+  end
+
   -- migrate old hideOutOfCombat -> hidePlayerFrame
   if PFH_DB.hidePlayerFrame == nil then
     if PFH_DB.hideOutOfCombat ~= nil then
@@ -100,6 +105,10 @@ local function HasEnemyTarget()
 end
 
 local function ShouldShowPlayerFrame()
+  if PFH_DB.enabled == false then
+    return true -- addon disabled => do not hide anything
+  end
+
   if IsAlwaysShowInstance() then return true end
 
   -- if not hiding at all, always show
@@ -113,6 +122,10 @@ local function ShouldShowPlayerFrame()
 end
 
 local function ShouldShowWidgets()
+  if PFH_DB.enabled == false then
+    return true -- addon disabled => do not hide widgets
+  end
+
   if IsAlwaysShowInstance() then return true end
   return IsInCombat() or HasEnemyTarget()
 end
@@ -293,11 +306,11 @@ local function InitPlayerFrame()
 end
 
 -- =========================================================
--- Options UI
+-- Options UI (Blizzard-native vertical Settings layout)
 -- =========================================================
 local function OpenOptions()
-  if Settings and Settings.OpenToCategory and state.optionsCategory then
-    Settings.OpenToCategory(state.optionsCategory.ID)
+  if Settings and Settings.OpenToCategory and state.optionsCategoryID then
+    Settings.OpenToCategory(state.optionsCategoryID)
     return
   end
 
@@ -315,221 +328,216 @@ local function CreateOptionsPanel()
   if state.optionsCreated then return end
   state.optionsCreated = true
 
-  local function BuildPanel(panel)
-    panel.name = OPTION_PANEL_NAME
+  if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnCategory) then
+    return
+  end
 
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("PlayerFrameHider")
+  ApplyDefaults()
 
-    local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    subtitle:SetText("Control visibility of player frame and Edit Mode widgets")
+  local category, layout = Settings.RegisterVerticalLayoutCategory(OPTION_PANEL_NAME)
+  state.optionsCategory = category
+  Settings.RegisterAddOnCategory(category)
 
-    local function CreateSectionHeader(anchor, text, yOffset)
-      local header = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-      header:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOffset)
-      header:SetText(text)
-      header:SetTextColor(1, 0.82, 0)
-      return header
+  local function VarTypeFor(v)
+    if Settings.VarType then
+      if type(v) == "boolean" then return Settings.VarType.Boolean end
+      if type(v) == "number" then return Settings.VarType.Number end
     end
+    return type(v) -- fallback
+  end
 
-    local function CreateDescription(anchor, text, yOffset)
-      local desc = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-      desc:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOffset)
-      desc:SetText(text)
-      desc:SetTextColor(0.7, 0.7, 0.7)
-      desc:SetJustifyH("LEFT")
-      desc:SetWidth(550)
-      return desc
-    end
+  -- 12.0 signature (works on 120000):
+  -- Settings.RegisterAddOnSetting(category, variable, variableKey, variableTbl, variableType, name, defaultValue)
+  local function RegisterSetting(key, name, defaultValue)
+    local ok, setting = pcall(Settings.RegisterAddOnSetting,
+      category,
+      key,         -- variable
+      key,         -- variableKey
+      PFH_DB,      -- variableTbl  (MUST be table)
+      VarTypeFor(defaultValue),
+      name,
+      defaultValue
+    )
+    if ok and setting then return setting end
 
-    local function CreateCheckbox(anchor, label, key, yOffset, indent)
-      indent = indent or 0
+    -- If Blizzard changes it again, fail loudly with context
+    error(("PlayerFrameHider: RegisterAddOnSetting failed for %s: %s"):format(key, tostring(setting)))
+  end
 
-      local cb = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
-      cb:ClearAllPoints()
-      cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", indent, yOffset)
+  local function OnChangedFor(key, setting)
+    if not (Settings.SetOnValueChangedCallback and setting and setting.GetValue) then return end
+    Settings.SetOnValueChangedCallback(key, function()
+      PFH_DB[key] = setting:GetValue()
 
-      -- Standard Blizzard checkbox size
-      cb:SetSize(26, 26)
-
-      -- Make label consistently aligned
-      cb.Text:ClearAllPoints()
-      cb.Text:SetPoint("LEFT", cb, "RIGHT", 2, 1)
-      cb.Text:SetText(label)
-
-      cb:SetChecked(PFH_DB[key])
-
-      cb:SetScript("OnClick", function(self)
-        PFH_DB[key] = self:GetChecked() and true or false
-
-        if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
-          StopHurtTicker()
-          state.hurtUntil = 0
-        end
-
-        ResolveWidgetFramesOnce()
-        Apply()
-      end)
-
-      return cb
-    end
-
-    local function CreateSlider(anchor, label, key, yOffset, minValue, maxValue, valueStep)
-      -- Label (same size as section labels)
-      local labelText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-      labelText:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOffset)
-      labelText:SetText(label)
-
-      -- Slider (under the label)
-      local slider = CreateFrame("Slider", nil, panel, "OptionsSliderTemplate")
-      slider:ClearAllPoints()
-      slider:SetPoint("TOPLEFT", labelText, "BOTTOMLEFT", 0, -8)
-      slider:SetMinMaxValues(minValue, maxValue)
-      slider:SetValueStep(valueStep)
-      slider:SetObeyStepOnDrag(true)
-      slider:SetWidth(260)
-
-      -- Hide the template's own label so it doesn't interfere
-      slider.Text:SetText("")
-      slider.Text:Hide()
-
-      slider.Low:SetText(string.format("%d%%", minValue * 100))
-      slider.High:SetText(string.format("%d%%", maxValue * 100))
-
-      -- Optional: value readout to the right (nice + helps debug spacing)
-      local valueText = slider:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-      valueText:SetPoint("LEFT", slider, "RIGHT", 12, 0)
-
-      local function FormatPercent(v)
-        return string.format("%d%%", math.floor((v * 100) + 0.5))
+      if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
+        StopHurtTicker()
+        state.hurtUntil = 0
       end
-
-      local current = PFH_DB[key]
-      if type(current) ~= "number" then current = minValue end
-      if current < minValue then current = minValue end
-      if current > maxValue then current = maxValue end
-
-      slider:SetValue(current)
-      valueText:SetText(FormatPercent(current))
-
-      slider:SetScript("OnValueChanged", function(self, value)
-        local clamped = value
-        if clamped < minValue then clamped = minValue end
-        if clamped > maxValue then clamped = maxValue end
-        clamped = math.floor(clamped * 100 + 0.5) / 100
-
-        PFH_DB[key] = clamped
-        valueText:SetText(FormatPercent(clamped))
-        Apply()
-      end)
-
-      -- Return an anchor that is GUARANTEED to be below the whole control
-      -- (so headers after it won't collide)
-      local bottom = panel:CreateFontString(nil, "ARTWORK", "GameFontDisable")
-      bottom:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", 0, -14)
-      bottom:SetText("")
-
-      return slider, bottom
-    end
-
-    -- General
-    local generalHeader = CreateSectionHeader(subtitle, "General Settings", -20)
-    local generalDesc = CreateDescription(generalHeader, "Global behavior that applies in all views", -4)
-    local cbInstance = CreateCheckbox(generalDesc, "Always show in dungeons/raids/battlegrounds/delves", "alwaysShowInInstance", -8)
-
-    -- Player frame
-    local pfHeader = CreateSectionHeader(cbInstance, "Player Frame Settings", -20)
-    local pfDesc = CreateDescription(pfHeader, "Configure when the player frame should be visible", -4)
-
-    local cbHide = CreateCheckbox(pfDesc, "Hide player frame", "hidePlayerFrame", -8)
-    local cbCombat = CreateCheckbox(cbHide, "Show player frame in combat", "showInCombat", -4)
-    local cbTarget = CreateCheckbox(cbCombat, "Show player frame if target", "showIfTarget", -4)
-    local cbHealth = CreateCheckbox(cbTarget, "Show player frame when health below 100%", "showWhenHealthBelow100", -4)
-
-    local sliderAlpha, sliderAlphaBottom = CreateSlider(cbHealth, "Hidden player frame alpha", "hiddenAlpha", -16, 0, 1, 0.05)
-
-    -- Widgets
-    local wHeader = CreateSectionHeader(sliderAlphaBottom, "Cooldowns settings", -12)
-    local wDesc = CreateDescription(wHeader, "Hide cooldowns out of combat (they will show in combat or when you have a target)", -4)
-
-    local cbE = CreateCheckbox(wDesc, "Control Essential Cooldowns visibility", "controlEssentialCooldowns", -8)
-    local cbU = CreateCheckbox(cbE, "Control Utility Cooldowns visibility", "controlUtilityCooldowns", -4)
-    local cbT = CreateCheckbox(cbU, "Control Tracked Buffs visibility", "controlTrackedBuffs", -4)
-
-    local separator = panel:CreateTexture(nil, "ARTWORK")
-    separator:SetPoint("TOPLEFT", cbT, "BOTTOMLEFT", -16, -16)
-    separator:SetSize(560, 1)
-    separator:SetColorTexture(0.3, 0.3, 0.3, 0.8)
-
-    local reloadNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    reloadNote:SetPoint("TOPLEFT", separator, "BOTTOMLEFT", 16, -12)
-    reloadNote:SetText("Note: Some changes may require a UI reload to take full effect")
-    reloadNote:SetTextColor(1, 0.5, 0.25)
-
-    local btn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    btn:SetSize(140, 22)
-    btn:SetPoint("TOPLEFT", reloadNote, "BOTTOMLEFT", 0, -12)
-    btn:SetText("Reload UI")
-    btn:SetScript("OnClick", ReloadUI)
-
-    local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    resetBtn:SetSize(140, 22)
-    resetBtn:SetPoint("LEFT", btn, "RIGHT", 8, 0)
-    resetBtn:SetText("Reset to defaults")
-    resetBtn:SetScript("OnClick", function()
-      PFH_DB = {}
-      ApplyDefaults()
-
-      cbHide:SetChecked(PFH_DB.hidePlayerFrame)
-      cbCombat:SetChecked(PFH_DB.showInCombat)
-      cbTarget:SetChecked(PFH_DB.showIfTarget)
-      cbHealth:SetChecked(PFH_DB.showWhenHealthBelow100)
-      cbInstance:SetChecked(PFH_DB.alwaysShowInInstance)
-
-      cbE:SetChecked(PFH_DB.controlEssentialCooldowns)
-      cbU:SetChecked(PFH_DB.controlUtilityCooldowns)
-      cbT:SetChecked(PFH_DB.controlTrackedBuffs)
-
-      local alpha = PFH_DB.hiddenAlpha
-      if type(alpha) ~= "number" then alpha = 0 end
-      sliderAlpha:SetValue(alpha)
 
       ResolveWidgetFramesOnce()
       Apply()
     end)
-
-    panel:SetScript("OnShow", function()
-      cbHide:SetChecked(PFH_DB.hidePlayerFrame)
-      cbCombat:SetChecked(PFH_DB.showInCombat)
-      cbTarget:SetChecked(PFH_DB.showIfTarget)
-      cbHealth:SetChecked(PFH_DB.showWhenHealthBelow100)
-      cbInstance:SetChecked(PFH_DB.alwaysShowInInstance)
-
-      cbE:SetChecked(PFH_DB.controlEssentialCooldowns)
-      cbU:SetChecked(PFH_DB.controlUtilityCooldowns)
-      cbT:SetChecked(PFH_DB.controlTrackedBuffs)
-
-      local alpha = PFH_DB.hiddenAlpha
-      if type(alpha) ~= "number" then alpha = 0 end
-      sliderAlpha:SetValue(alpha)
-    end)
   end
 
-  if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
-    local panel = CreateFrame("Frame")
-    BuildPanel(panel)
-    state.optionsCategory = Settings.RegisterCanvasLayoutCategory(panel, OPTION_PANEL_NAME)
-    Settings.RegisterAddOnCategory(state.optionsCategory)
-    return
+  local function CreateCheckboxControl(setting, tooltip)
+    -- 120000: CreateCheckbox (NOT CreateCheckBox)
+    if Settings.CreateCheckbox then
+      return Settings.CreateCheckbox(category, setting, tooltip)
+    end
+    -- fallback name just in case
+    if Settings.CreateCheckBox then
+      return Settings.CreateCheckBox(category, setting, tooltip)
+    end
   end
 
-  if InterfaceOptions_AddCategory then
-    local panel = CreateFrame("Frame")
-    BuildPanel(panel)
-    InterfaceOptions_AddCategory(panel)
+  local function AddCheckbox(key, name, tooltip)
+    local defaultValue = PFH_DB[key] and true or false
+    local setting = RegisterSetting(key, name, defaultValue)
+    OnChangedFor(key, setting)
+    CreateCheckboxControl(setting, tooltip)
+    return setting
   end
+
+  local function AddSlider(key, name, tooltip, minValue, maxValue, step, defaultValue)
+    local current = PFH_DB[key]
+    if type(current) ~= "number" then current = 0 end
+    if current < minValue then current = minValue end
+    if current > maxValue then current = maxValue end
+    PFH_DB[key] = current
+
+    local default = defaultValue
+    if type(default) ~= "number" then
+      default = current
+    end
+    if default < minValue then default = minValue end
+    if default > maxValue then default = maxValue end
+
+    local setting = RegisterSetting(key, name, default)
+    OnChangedFor(key, setting)
+
+    if Settings.CreateSliderOptions and Settings.CreateSlider then
+      local opts = Settings.CreateSliderOptions(minValue, maxValue, step)
+
+      -- Show percentage on the right, even though the
+      -- stored value is a 0-1 alpha.
+      if MinimalSliderWithSteppersMixin and MinimalSliderWithSteppersMixin.Label and MinimalSliderWithSteppersMixin.Label.Right and opts.SetLabelFormatter then
+        opts:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
+          if FormatPercentage then
+            return FormatPercentage(value, true)
+          else
+            return string.format("%d%%", math.floor((value * 100) + 0.5))
+          end
+        end)
+      end
+
+      Settings.CreateSlider(category, setting, opts, tooltip)
+    elseif Settings.CreateSlider then
+      -- older signature fallback
+      Settings.CreateSlider(category, setting, minValue, maxValue, step, tooltip)
+    end
+
+    return setting
+  end
+
+  local function AddHeader(text)
+    if layout and type(layout.AddInitializer) == "function"
+      and type(CreateSettingsListSectionHeaderInitializer) == "function" then
+      layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
+    end
+  end
+
+  local function AddTextNote(text)
+    if layout and type(layout.AddInitializer) == "function"
+      and type(CreateSettingsListSectionHeaderInitializer) == "function" then
+      -- Use the same safe initializer pipeline as headers
+      -- (Header initializer supports colored strings fine)
+      layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
+    end
+  end
+
+  AddHeader("General")
+
+  AddCheckbox(
+    "enabled",
+    "Enable PlayerFrameHider",
+    "Master toggle for all PlayerFrameHider behaviour."
+  )
+
+  -- -------------------------
+  -- Player Frame
+  -- -------------------------
+
+  AddHeader("Player Frame")
+
+  AddCheckbox(
+    "hidePlayerFrame",
+    "Hide player frame",
+    "Hide the Blizzard Player Frame by default. The options below control when it is shown again."
+  )
+
+  AddCheckbox(
+    "showInCombat",
+    "Show in combat",
+    "Show the Player Frame while you are in combat."
+  )
+
+  AddCheckbox(
+    "showIfTarget",
+    "Show with target",
+    "Show the Player Frame when you have a target selected."
+  )
+
+  AddCheckbox(
+    "showWhenHealthBelow100",
+    "Show on health change",
+    "Temporarily show the Player Frame after your health changes."
+  )
+
+  AddSlider(
+    "hiddenAlpha",
+    "Hidden alpha",
+    "Opacity when hidden (0% = fully hidden, 100% = fully visible).",
+    0, 1, 0.05, 0
+  )
+
+  -- -------------------------
+  -- Widgets
+  -- -------------------------
+
+  AddHeader("Cooldowns and buffs")
+
+  AddTextNote("|cffffa500Changes in this section require a UI reload.|r")
+
+  AddCheckbox(
+    "controlEssentialCooldowns",
+    "Manage Essential Cooldowns",
+    "Hide out of combat. Shows in combat or with an attackable target."
+  )
+
+  AddCheckbox(
+    "controlUtilityCooldowns",
+    "Manage Utility Cooldowns",
+    "Hide out of combat. Shows in combat or with an attackable target."
+  )
+
+  AddCheckbox(
+    "controlTrackedBuffs",
+    "Manage Tracked Buffs",
+    "Hide out of combat. Shows in combat or with an attackable target."
+  )
+
+  -- -------------------------
+  -- Overrides
+  -- -------------------------
+  
+  AddHeader("Overrides")
+  
+  AddCheckbox(
+    "alwaysShowInInstance",
+    "Always show in instances",
+    "Always show the player frame and widgets in dungeons, raids, PvP, scenarios, and delves."
+  )
+
 end
 
 -- =========================================================
