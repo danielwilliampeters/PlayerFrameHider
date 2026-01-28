@@ -58,6 +58,17 @@ local function ApplyDefaults()
   if PFH_DB.controlTrackedBuffs == nil then PFH_DB.controlTrackedBuffs = false end
 
   if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = true end
+
+  if PFH_DB.hiddenAlpha == nil then PFH_DB.hiddenAlpha = 0 end
+
+  -- sanity-clamp alpha
+  if type(PFH_DB.hiddenAlpha) ~= "number" then
+    PFH_DB.hiddenAlpha = 0
+  elseif PFH_DB.hiddenAlpha < 0 then
+    PFH_DB.hiddenAlpha = 0
+  elseif PFH_DB.hiddenAlpha > 1 then
+    PFH_DB.hiddenAlpha = 1
+  end
 end
 
 -- =========================================================
@@ -162,6 +173,15 @@ local function SetPlayerFrameVisible(wantVisible)
   if not PlayerFrame then return end
 
   local inLockdown = InCombatLockdown()
+  local hiddenAlpha = PFH_DB.hiddenAlpha
+
+  if type(hiddenAlpha) ~= "number" then
+    hiddenAlpha = 0
+  elseif hiddenAlpha < 0 then
+    hiddenAlpha = 0
+  elseif hiddenAlpha > 1 then
+    hiddenAlpha = 1
+  end
 
   if wantVisible then
     state.playerFrameHidden = false
@@ -171,7 +191,7 @@ local function SetPlayerFrameVisible(wantVisible)
     end
   else
     state.playerFrameHidden = true
-    if PlayerFrame:GetAlpha() ~= 0 then PlayerFrame:SetAlpha(0) end
+    if PlayerFrame:GetAlpha() ~= hiddenAlpha then PlayerFrame:SetAlpha(hiddenAlpha) end
     if not inLockdown then
       PlayerFrame:EnableMouse(false)
     end
@@ -324,16 +344,26 @@ local function CreateOptionsPanel()
       return desc
     end
 
-    local function CreateCheckbox(anchor, label, key, yOffset)
+    local function CreateCheckbox(anchor, label, key, yOffset, indent)
+      indent = indent or 0
+
       local cb = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
-      cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOffset)
+      cb:ClearAllPoints()
+      cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", indent, yOffset)
+
+      -- Standard Blizzard checkbox size
+      cb:SetSize(26, 26)
+
+      -- Make label consistently aligned
+      cb.Text:ClearAllPoints()
+      cb.Text:SetPoint("LEFT", cb, "RIGHT", 2, 1)
       cb.Text:SetText(label)
+
       cb:SetChecked(PFH_DB[key])
 
       cb:SetScript("OnClick", function(self)
         PFH_DB[key] = self:GetChecked() and true or false
 
-        -- If the user disables the health-based show, stop any running ticker.
         if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
           StopHurtTicker()
           state.hurtUntil = 0
@@ -344,6 +374,64 @@ local function CreateOptionsPanel()
       end)
 
       return cb
+    end
+
+    local function CreateSlider(anchor, label, key, yOffset, minValue, maxValue, valueStep)
+      -- Label (same size as section labels)
+      local labelText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+      labelText:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOffset)
+      labelText:SetText(label)
+
+      -- Slider (under the label)
+      local slider = CreateFrame("Slider", nil, panel, "OptionsSliderTemplate")
+      slider:ClearAllPoints()
+      slider:SetPoint("TOPLEFT", labelText, "BOTTOMLEFT", 0, -8)
+      slider:SetMinMaxValues(minValue, maxValue)
+      slider:SetValueStep(valueStep)
+      slider:SetObeyStepOnDrag(true)
+      slider:SetWidth(260)
+
+      -- Hide the template's own label so it doesn't interfere
+      slider.Text:SetText("")
+      slider.Text:Hide()
+
+      slider.Low:SetText(string.format("%d%%", minValue * 100))
+      slider.High:SetText(string.format("%d%%", maxValue * 100))
+
+      -- Optional: value readout to the right (nice + helps debug spacing)
+      local valueText = slider:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+      valueText:SetPoint("LEFT", slider, "RIGHT", 12, 0)
+
+      local function FormatPercent(v)
+        return string.format("%d%%", math.floor((v * 100) + 0.5))
+      end
+
+      local current = PFH_DB[key]
+      if type(current) ~= "number" then current = minValue end
+      if current < minValue then current = minValue end
+      if current > maxValue then current = maxValue end
+
+      slider:SetValue(current)
+      valueText:SetText(FormatPercent(current))
+
+      slider:SetScript("OnValueChanged", function(self, value)
+        local clamped = value
+        if clamped < minValue then clamped = minValue end
+        if clamped > maxValue then clamped = maxValue end
+        clamped = math.floor(clamped * 100 + 0.5) / 100
+
+        PFH_DB[key] = clamped
+        valueText:SetText(FormatPercent(clamped))
+        Apply()
+      end)
+
+      -- Return an anchor that is GUARANTEED to be below the whole control
+      -- (so headers after it won't collide)
+      local bottom = panel:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+      bottom:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", 0, -14)
+      bottom:SetText("")
+
+      return slider, bottom
     end
 
     -- General
@@ -360,8 +448,10 @@ local function CreateOptionsPanel()
     local cbTarget = CreateCheckbox(cbCombat, "Show player frame if target", "showIfTarget", -4)
     local cbHealth = CreateCheckbox(cbTarget, "Show player frame when health below 100%", "showWhenHealthBelow100", -4)
 
+    local sliderAlpha, sliderAlphaBottom = CreateSlider(cbHealth, "Hidden player frame alpha", "hiddenAlpha", -16, 0, 1, 0.05)
+
     -- Widgets
-    local wHeader = CreateSectionHeader(cbHealth, "Cooldowns settings", -20)
+    local wHeader = CreateSectionHeader(sliderAlphaBottom, "Cooldowns settings", -12)
     local wDesc = CreateDescription(wHeader, "Hide cooldowns out of combat (they will show in combat or when you have a target)", -4)
 
     local cbE = CreateCheckbox(wDesc, "Control Essential Cooldowns visibility", "controlEssentialCooldowns", -8)
@@ -384,6 +474,32 @@ local function CreateOptionsPanel()
     btn:SetText("Reload UI")
     btn:SetScript("OnClick", ReloadUI)
 
+    local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    resetBtn:SetSize(140, 22)
+    resetBtn:SetPoint("LEFT", btn, "RIGHT", 8, 0)
+    resetBtn:SetText("Reset to defaults")
+    resetBtn:SetScript("OnClick", function()
+      PFH_DB = {}
+      ApplyDefaults()
+
+      cbHide:SetChecked(PFH_DB.hidePlayerFrame)
+      cbCombat:SetChecked(PFH_DB.showInCombat)
+      cbTarget:SetChecked(PFH_DB.showIfTarget)
+      cbHealth:SetChecked(PFH_DB.showWhenHealthBelow100)
+      cbInstance:SetChecked(PFH_DB.alwaysShowInInstance)
+
+      cbE:SetChecked(PFH_DB.controlEssentialCooldowns)
+      cbU:SetChecked(PFH_DB.controlUtilityCooldowns)
+      cbT:SetChecked(PFH_DB.controlTrackedBuffs)
+
+      local alpha = PFH_DB.hiddenAlpha
+      if type(alpha) ~= "number" then alpha = 0 end
+      sliderAlpha:SetValue(alpha)
+
+      ResolveWidgetFramesOnce()
+      Apply()
+    end)
+
     panel:SetScript("OnShow", function()
       cbHide:SetChecked(PFH_DB.hidePlayerFrame)
       cbCombat:SetChecked(PFH_DB.showInCombat)
@@ -394,6 +510,10 @@ local function CreateOptionsPanel()
       cbE:SetChecked(PFH_DB.controlEssentialCooldowns)
       cbU:SetChecked(PFH_DB.controlUtilityCooldowns)
       cbT:SetChecked(PFH_DB.controlTrackedBuffs)
+
+      local alpha = PFH_DB.hiddenAlpha
+      if type(alpha) ~= "number" then alpha = 0 end
+      sliderAlpha:SetValue(alpha)
     end)
   end
 
