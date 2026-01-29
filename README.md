@@ -4,15 +4,15 @@ A World of Warcraft addon that automatically manages the visibility of the Playe
 
 ## Features
 
-- **Configurable player frame visibility**: Hide the player frame by default and choose when it should automatically reappear
-- **Show in combat**: Optionally show the player frame whenever you enter combat
+- **Alpha-based player frame hiding**: Fade the player frame to transparent instead of forcibly hiding it, keeping everything combat-safe
+- **Configurable visibility rules**: Choose when the player frame should automatically fade back in
+- **Show in combat**: Optionally restore the player frame whenever you enter combat
 - **Show on target**: Optionally show the player frame when you have a target selected
-- **Health awareness**: Optionally show the player frame when your health drops below 100%
-- **Instance-aware**: Option to always show the player frame and widgets while in dungeons, raids, battlegrounds, or delves
-- **Edit Mode widget control**: Hide Essential Cooldowns, Utility Cooldowns, and Tracked Buffs out of combat
-- **Improved UI**: Categorized options panel with clear sections and helpful descriptions
-- **Configurable**: Easy-to-use options panel with organized settings
-- **Slash commands**: Quick access to settings via `/pfh` or `/playerframehider`
+- **Health awareness**: Optionally show the player frame when your health drops below a configurable threshold
+- **Instance-aware**: Always show the player frame and widgets in dungeons, raids, battlegrounds, or delves
+- **Edit Mode widget control**: Fade Essential Cooldowns, Utility Cooldowns, and Tracked Buffs while out of combat
+- **Polished options UI**: Blizzard-style categorized settings with clear sections and helpful descriptions
+- **Slash commands**: Quick access via `/pfh` or `/playerframehider`
 
 ## Installation
 
