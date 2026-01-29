@@ -7,10 +7,27 @@ local eventFrame = CreateFrame("Frame")
 
 PFH_DB = PFH_DB or {}
 
+-- ---------------------------------------------------------------------
+-- Defaults
+-- ---------------------------------------------------------------------
+
+local DEFAULTS = {
+  enabled = true,
+  hidePlayerFrame = true,
+  showInCombat = true,
+  showIfTarget = true,
+  showWhenHealthBelow100 = true,
+  controlEssentialCooldowns = false,
+  controlUtilityCooldowns = false,
+  controlTrackedBuffs = false,
+  alwaysShowInInstance = true,
+  hiddenAlpha = 0,
+}
+
 -- =========================================================
 -- Constants / State
 -- =========================================================
-local OPTION_PANEL_NAME = "PlayerFrameHider"
+local OPTION_PANEL_NAME = "Player Frame Hider"
 local HURT_GRACE_SECONDS = 3
 
 local state = {
@@ -42,7 +59,7 @@ local state = {
 local function ApplyDefaults()
   -- master enable
   if PFH_DB.enabled == nil then
-    PFH_DB.enabled = true
+    PFH_DB.enabled = DEFAULTS.enabled
   end
 
   -- migrate old hideOutOfCombat -> hidePlayerFrame
@@ -50,21 +67,21 @@ local function ApplyDefaults()
     if PFH_DB.hideOutOfCombat ~= nil then
       PFH_DB.hidePlayerFrame = PFH_DB.hideOutOfCombat and true or false
     else
-      PFH_DB.hidePlayerFrame = true
+      PFH_DB.hidePlayerFrame = DEFAULTS.hidePlayerFrame
     end
   end
 
-  if PFH_DB.showInCombat == nil then PFH_DB.showInCombat = true end
-  if PFH_DB.showIfTarget == nil then PFH_DB.showIfTarget = true end
-  if PFH_DB.showWhenHealthBelow100 == nil then PFH_DB.showWhenHealthBelow100 = true end
+  if PFH_DB.showInCombat == nil then PFH_DB.showInCombat = DEFAULTS.showInCombat end
+  if PFH_DB.showIfTarget == nil then PFH_DB.showIfTarget = DEFAULTS.showIfTarget end
+  if PFH_DB.showWhenHealthBelow100 == nil then PFH_DB.showWhenHealthBelow100 = DEFAULTS.showWhenHealthBelow100 end
 
-  if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = false end
-  if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = false end
-  if PFH_DB.controlTrackedBuffs == nil then PFH_DB.controlTrackedBuffs = false end
+  if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = DEFAULTS.controlEssentialCooldowns end
+  if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = DEFAULTS.controlUtilityCooldowns end
+  if PFH_DB.controlTrackedBuffs == nil then PFH_DB.controlTrackedBuffs = DEFAULTS.controlTrackedBuffs end
 
-  if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = true end
+  if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = DEFAULTS.alwaysShowInInstance end
 
-  if PFH_DB.hiddenAlpha == nil then PFH_DB.hiddenAlpha = 0 end
+  if PFH_DB.hiddenAlpha == nil then PFH_DB.hiddenAlpha = DEFAULTS.hiddenAlpha end
 
   -- sanity-clamp alpha
   if type(PFH_DB.hiddenAlpha) ~= "number" then
@@ -391,7 +408,7 @@ local function CreateOptionsPanel()
   end
 
   local function AddCheckbox(key, name, tooltip)
-    local defaultValue = PFH_DB[key] and true or false
+    local defaultValue = DEFAULTS[key] and true or false
     local setting = RegisterSetting(key, name, defaultValue)
     OnChangedFor(key, setting)
     CreateCheckboxControl(setting, tooltip)
@@ -446,33 +463,23 @@ local function CreateOptionsPanel()
     end
   end
 
-  local function AddTextNote(text)
-    if layout and type(layout.AddInitializer) == "function"
-      and type(CreateSettingsListSectionHeaderInitializer) == "function" then
-      -- Use the same safe initializer pipeline as headers
-      -- (Header initializer supports colored strings fine)
-      layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
-    end
-  end
-
-  AddHeader("General")
-
   AddCheckbox(
     "enabled",
     "Enable PlayerFrameHider",
     "Master toggle for all PlayerFrameHider behaviour."
   )
 
-  -- -------------------------
-  -- Player Frame
-  -- -------------------------
-
-  AddHeader("Player Frame")
-
   AddCheckbox(
     "hidePlayerFrame",
     "Hide player frame",
     "Hide the Blizzard Player Frame by default. The options below control when it is shown again."
+  )
+
+  AddSlider(
+    "hiddenAlpha",
+    "Hidden alpha",
+    "Opacity when hidden (0% = fully hidden, 100% = fully visible).",
+    0, 1, 0.05, DEFAULTS.hiddenAlpha
   )
 
   AddCheckbox(
@@ -493,49 +500,30 @@ local function CreateOptionsPanel()
     "Temporarily show the Player Frame after your health changes."
   )
 
-  AddSlider(
-    "hiddenAlpha",
-    "Hidden alpha",
-    "Opacity when hidden (0% = fully hidden, 100% = fully visible).",
-    0, 1, 0.05, 0
+  AddCheckbox(
+    "alwaysShowInInstance",
+    "Always show in instances",
+    "Always show the player frame and widgets in dungeons, raids, PvP, scenarios, and delves."
   )
 
-  -- -------------------------
-  -- Widgets
-  -- -------------------------
-
   AddHeader("Cooldowns and buffs")
-
-  AddTextNote("|cffffa500Changes in this section require a UI reload.|r")
 
   AddCheckbox(
     "controlEssentialCooldowns",
     "Manage Essential Cooldowns",
-    "Hide out of combat. Shows in combat or with an attackable target."
+    "Hide out of combat. Shows in combat or with an attackable target.\n\nChanges require a UI reload."
   )
 
   AddCheckbox(
     "controlUtilityCooldowns",
     "Manage Utility Cooldowns",
-    "Hide out of combat. Shows in combat or with an attackable target."
+    "Hide out of combat. Shows in combat or with an attackable target.\n\nChanges require a UI reload."
   )
 
   AddCheckbox(
     "controlTrackedBuffs",
     "Manage Tracked Buffs",
-    "Hide out of combat. Shows in combat or with an attackable target."
-  )
-
-  -- -------------------------
-  -- Overrides
-  -- -------------------------
-  
-  AddHeader("Overrides")
-  
-  AddCheckbox(
-    "alwaysShowInInstance",
-    "Always show in instances",
-    "Always show the player frame and widgets in dungeons, raids, PvP, scenarios, and delves."
+    "Hide out of combat. Shows in combat or with an attackable target.\n\nChanges require a UI reload."
   )
 
 end
