@@ -465,8 +465,8 @@ local function CreateOptionsPanel()
 
   AddCheckbox(
     "enabled",
-    "Enable PlayerFrameHider",
-    "Master toggle for all PlayerFrameHider behaviour."
+    "Enable Player Frame Hider",
+    "Enables or disables Player Frame Hider.\n\nChanges require a UI reload."
   )
 
   AddCheckbox(

@@ -2,7 +2,7 @@
 ## Title: PlayerFrameHider
 ## Notes: Toggle visibility rules for the PlayerFrame and cooldowns/buffs. /pfh
 ## Author: Daniel Peters
-## Version: 1.2.1
+## Version: 1.2.2
 ## SavedVariables: PFH_DB
 ## Category: Unit Frames
 ## IconTexture: Interface\AddOns\PlayerFrameHider\icon.tga
