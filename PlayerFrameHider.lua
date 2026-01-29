@@ -17,6 +17,7 @@ local DEFAULTS = {
   showInCombat = true,
   showIfTarget = true,
   showWhenHealthBelow100 = true,
+  hoverRevealOutOfCombat = false,
   controlEssentialCooldowns = false,
   controlUtilityCooldowns = false,
   controlTrackedBuffs = false,
@@ -46,6 +47,10 @@ local state = {
 
   -- alpha-hidden tracking (combat-safe)
   playerFrameHidden = false,
+  hoverOverride = false,
+
+  -- hover hide delay
+  hoverHideTimer = nil,
 
   -- widget frames
   EssentialCDFrame = nil,
@@ -74,6 +79,7 @@ local function ApplyDefaults()
   if PFH_DB.showInCombat == nil then PFH_DB.showInCombat = DEFAULTS.showInCombat end
   if PFH_DB.showIfTarget == nil then PFH_DB.showIfTarget = DEFAULTS.showIfTarget end
   if PFH_DB.showWhenHealthBelow100 == nil then PFH_DB.showWhenHealthBelow100 = DEFAULTS.showWhenHealthBelow100 end
+  if PFH_DB.hoverRevealOutOfCombat == nil then PFH_DB.hoverRevealOutOfCombat = DEFAULTS.hoverRevealOutOfCombat end
 
   if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = DEFAULTS.controlEssentialCooldowns end
   if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = DEFAULTS.controlUtilityCooldowns end
@@ -134,6 +140,10 @@ local function ShouldShowPlayerFrame()
   if PFH_DB.showInCombat and IsInCombat() then return true end
   if PFH_DB.showIfTarget and UnitExists("target") then return true end
   if PFH_DB.showWhenHealthBelow100 and GetTime() < state.hurtUntil then return true end
+
+  if PFH_DB.hoverRevealOutOfCombat and state.hoverOverride and not IsInCombat() then
+    return true
+  end
 
   return false
 end
@@ -223,9 +233,45 @@ local function SetPlayerFrameVisible(wantVisible)
     state.playerFrameHidden = true
     if PlayerFrame:GetAlpha() ~= hiddenAlpha then PlayerFrame:SetAlpha(hiddenAlpha) end
     if not inLockdown then
-      PlayerFrame:EnableMouse(false)
+      if PFH_DB.hoverRevealOutOfCombat then
+        PlayerFrame:EnableMouse(true)
+      else
+        PlayerFrame:EnableMouse(false)
+      end
     end
   end
+end
+
+-- =========================================================
+-- Hover reveal (out of combat)
+-- =========================================================
+local function OnPlayerFrameEnter()
+  if not PFH_DB.enabled then return end
+  if not PFH_DB.hidePlayerFrame then return end
+  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if IsInCombat() then return end
+  if state.hoverHideTimer then
+    state.hoverHideTimer:Cancel()
+    state.hoverHideTimer = nil
+  end
+  state.hoverOverride = true
+  Apply()
+end
+
+local function OnPlayerFrameLeave()
+  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if state.hoverHideTimer then
+    state.hoverHideTimer:Cancel()
+    state.hoverHideTimer = nil
+  end
+
+  state.hoverHideTimer = C_Timer.NewTimer(3, function()
+    state.hoverHideTimer = nil
+    if not PFH_DB.hoverRevealOutOfCombat then return end
+    if IsInCombat() then return end
+    state.hoverOverride = false
+    Apply()
+  end)
 end
 
 -- =========================================================
@@ -304,6 +350,17 @@ local function HookOnce()
   hooksecurefunc(PlayerFrame, "SetShown", function(_, shown)
     if shown then VetoIfNeeded() end
   end)
+
+  -- Slightly expand the clickable area so hovering over
+  -- the health portion still counts as being over the frame.
+  if PlayerFrame.SetHitRectInsets then
+    local l, r, t, b = PlayerFrame:GetHitRectInsets()
+    l, r, t, b = l or 0, r or 0, t or 0, b or 0
+    PlayerFrame:SetHitRectInsets(l - 10, r - 10, t - 10, b - 10)
+  end
+
+  PlayerFrame:HookScript("OnEnter", OnPlayerFrameEnter)
+  PlayerFrame:HookScript("OnLeave", OnPlayerFrameLeave)
 
   Apply()
 end
@@ -498,6 +555,12 @@ local function CreateOptionsPanel()
     "showWhenHealthBelow100",
     "Show on health change",
     "Temporarily show the Player Frame after your health changes."
+  )
+
+  AddCheckbox(
+    "hoverRevealOutOfCombat",
+    "Hover to show out of combat",
+    "When the Player Frame is hidden out of combat, moving your mouse over its area temporarily shows it until you move your mouse away."
   )
 
   AddCheckbox(
