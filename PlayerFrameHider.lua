@@ -1,23 +1,28 @@
--- PlayerFrameHider
+-- Player Frame Hider: Blizzard player frame hider addon (Retail)
 
 local ADDON_NAME = ...
 local VERSION = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or "dev"
 
-local eventFrame = CreateFrame("Frame")
+-- Shared namespace
+PlayerFrameHider = PlayerFrameHider or {}
+local PFH = PlayerFrameHider
 
 PFH_DB = PFH_DB or {}
+
+PFH.VERSION = VERSION
+PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 
 -- ---------------------------------------------------------------------
 -- Defaults
 -- ---------------------------------------------------------------------
 
-local DEFAULTS = {
+PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
   showInCombat = true,
   showIfTarget = true,
   showWhenHealthBelow100 = true,
-  hoverRevealOutOfCombat = false,
+  hoverRevealOutOfCombat = true,
   controlEssentialCooldowns = false,
   controlUtilityCooldowns = false,
   controlTrackedBuffs = false,
@@ -28,10 +33,21 @@ local DEFAULTS = {
 -- =========================================================
 -- Constants / State
 -- =========================================================
-local OPTION_PANEL_NAME = "Player Frame Hider"
+
 local HURT_GRACE_SECONDS = 3
 
-local state = {
+local function ClampHiddenAlpha(value)
+  if type(value) ~= "number" then
+    return 0
+  elseif value < 0 then
+    return 0
+  elseif value > 1 then
+    return 1
+  end
+  return value
+end
+
+PFH.state = PFH.state or {
   inCombat = false,
 
   -- grace window after health-related events
@@ -42,6 +58,7 @@ local state = {
   hooked = false,
   optionsCreated = false,
   optionsCategory = nil,
+  optionsCategoryID = nil,
   loadMessageShown = false,
   didInit = false, -- guards double init between LOGIN / ENTERING_WORLD
 
@@ -58,10 +75,15 @@ local state = {
   TrackedBuffsFrame = nil,
 }
 
+local state = PFH.state
+
 -- =========================================================
 -- DB defaults / migration
 -- =========================================================
-local function ApplyDefaults()
+
+function PFH.ApplyDefaults()
+  local DEFAULTS = PFH.DEFAULTS
+
   -- master enable
   if PFH_DB.enabled == nil then
     PFH_DB.enabled = DEFAULTS.enabled
@@ -88,20 +110,13 @@ local function ApplyDefaults()
   if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = DEFAULTS.alwaysShowInInstance end
 
   if PFH_DB.hiddenAlpha == nil then PFH_DB.hiddenAlpha = DEFAULTS.hiddenAlpha end
-
-  -- sanity-clamp alpha
-  if type(PFH_DB.hiddenAlpha) ~= "number" then
-    PFH_DB.hiddenAlpha = 0
-  elseif PFH_DB.hiddenAlpha < 0 then
-    PFH_DB.hiddenAlpha = 0
-  elseif PFH_DB.hiddenAlpha > 1 then
-    PFH_DB.hiddenAlpha = 1
-  end
+  PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
 end
 
 -- =========================================================
 -- Helpers
 -- =========================================================
+
 local function MarkHurt()
   state.hurtUntil = GetTime() + HURT_GRACE_SECONDS
 end
@@ -160,6 +175,7 @@ end
 -- =========================================================
 -- Frame resolution (Edit Mode widgets)
 -- =========================================================
+
 local function FindFrameByNameHint(hint)
   for k, v in pairs(_G) do
     if type(k) == "string" and type(v) == "table" and v.GetObjectType and v.IsShown then
@@ -209,19 +225,12 @@ end
 -- =========================================================
 -- PlayerFrame visibility (combat-safe alpha)
 -- =========================================================
+
 local function SetPlayerFrameVisible(wantVisible)
   if not PlayerFrame then return end
 
   local inLockdown = InCombatLockdown()
-  local hiddenAlpha = PFH_DB.hiddenAlpha
-
-  if type(hiddenAlpha) ~= "number" then
-    hiddenAlpha = 0
-  elseif hiddenAlpha < 0 then
-    hiddenAlpha = 0
-  elseif hiddenAlpha > 1 then
-    hiddenAlpha = 1
-  end
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
 
   if wantVisible then
     state.playerFrameHidden = false
@@ -245,6 +254,7 @@ end
 -- =========================================================
 -- Hover reveal (out of combat)
 -- =========================================================
+
 local function OnPlayerFrameEnter()
   if not PFH_DB.enabled then return end
   if not PFH_DB.hidePlayerFrame then return end
@@ -277,6 +287,7 @@ end
 -- =========================================================
 -- Widget visibility
 -- =========================================================
+
 local function ApplyWidget(frame, enabled)
   if not enabled or not frame then return end
 
@@ -295,6 +306,7 @@ end
 -- =========================================================
 -- Core apply
 -- =========================================================
+
 function Apply()
   if not PlayerFrame then return end
 
@@ -308,6 +320,7 @@ end
 -- =========================================================
 -- Hurt ticker
 -- =========================================================
+
 local function StopHurtTicker()
   if state.hurtTicker then
     state.hurtTicker:Cancel()
@@ -332,6 +345,7 @@ end
 -- =========================================================
 -- Show veto hooks (prevents other UI code forcing Show())
 -- =========================================================
+
 local function VetoIfNeeded()
   if not PlayerFrame then return end
   if InCombatLockdown() then return end
@@ -380,306 +394,27 @@ local function InitPlayerFrame()
 end
 
 -- =========================================================
--- Options UI (Blizzard-native vertical Settings layout)
+-- API exposure for other modules
 -- =========================================================
-local function OpenOptions()
-  if Settings and Settings.OpenToCategory and state.optionsCategoryID then
-    Settings.OpenToCategory(state.optionsCategoryID)
-    return
-  end
 
-  if InterfaceOptionsFrame_OpenToCategory then
-    InterfaceOptionsFrame_OpenToCategory(OPTION_PANEL_NAME)
-    InterfaceOptionsFrame_OpenToCategory(OPTION_PANEL_NAME)
-  end
-end
+PFH.MarkHurt = MarkHurt
+PFH.EnsureHurtTicker = EnsureHurtTicker
+PFH.StopHurtTicker = StopHurtTicker
 
-SLASH_PlayerFrameHider1 = "/pfh"
-SLASH_PlayerFrameHider2 = "/playerframehider"
-SlashCmdList["PlayerFrameHider"] = OpenOptions
+PFH.IsAlwaysShowInstance = IsAlwaysShowInstance
+PFH.IsInCombat = IsInCombat
+PFH.HasEnemyTarget = HasEnemyTarget
+PFH.ShouldShowPlayerFrame = ShouldShowPlayerFrame
+PFH.ShouldShowWidgets = ShouldShowWidgets
 
-local function CreateOptionsPanel()
-  if state.optionsCreated then return end
-  state.optionsCreated = true
+PFH.ResolveWidgetFramesOnce = ResolveWidgetFramesOnce
+PFH.ResolveWidgetFramesWithRetries = ResolveWidgetFramesWithRetries
+PFH.NeedWidgets = NeedWidgets
+PFH.HaveRequiredWidgets = HaveRequiredWidgets
 
-  if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnCategory) then
-    return
-  end
+PFH.SetPlayerFrameVisible = SetPlayerFrameVisible
+PFH.ApplyWidget = ApplyWidget
+PFH.Apply = Apply
 
-  ApplyDefaults()
-
-  local category, layout = Settings.RegisterVerticalLayoutCategory(OPTION_PANEL_NAME)
-  state.optionsCategory = category
-  Settings.RegisterAddOnCategory(category)
-
-  local function VarTypeFor(v)
-    if Settings.VarType then
-      if type(v) == "boolean" then return Settings.VarType.Boolean end
-      if type(v) == "number" then return Settings.VarType.Number end
-    end
-    return type(v) -- fallback
-  end
-
-  -- 12.0 signature (works on 120000):
-  -- Settings.RegisterAddOnSetting(category, variable, variableKey, variableTbl, variableType, name, defaultValue)
-  local function RegisterSetting(key, name, defaultValue)
-    local ok, setting = pcall(Settings.RegisterAddOnSetting,
-      category,
-      key,         -- variable
-      key,         -- variableKey
-      PFH_DB,      -- variableTbl  (MUST be table)
-      VarTypeFor(defaultValue),
-      name,
-      defaultValue
-    )
-    if ok and setting then return setting end
-
-    -- If Blizzard changes it again, fail loudly with context
-    error(("PlayerFrameHider: RegisterAddOnSetting failed for %s: %s"):format(key, tostring(setting)))
-  end
-
-  local function OnChangedFor(key, setting)
-    if not (Settings.SetOnValueChangedCallback and setting and setting.GetValue) then return end
-    Settings.SetOnValueChangedCallback(key, function()
-      PFH_DB[key] = setting:GetValue()
-
-      if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
-        StopHurtTicker()
-        state.hurtUntil = 0
-      end
-
-      ResolveWidgetFramesOnce()
-      Apply()
-    end)
-  end
-
-  local function CreateCheckboxControl(setting, tooltip)
-    -- 120000: CreateCheckbox (NOT CreateCheckBox)
-    if Settings.CreateCheckbox then
-      return Settings.CreateCheckbox(category, setting, tooltip)
-    end
-    -- fallback name just in case
-    if Settings.CreateCheckBox then
-      return Settings.CreateCheckBox(category, setting, tooltip)
-    end
-  end
-
-  local function AddCheckbox(key, name, tooltip)
-    local defaultValue = DEFAULTS[key] and true or false
-    local setting = RegisterSetting(key, name, defaultValue)
-    OnChangedFor(key, setting)
-    CreateCheckboxControl(setting, tooltip)
-    return setting
-  end
-
-  local function AddSlider(key, name, tooltip, minValue, maxValue, step, defaultValue)
-    local current = PFH_DB[key]
-    if type(current) ~= "number" then current = 0 end
-    if current < minValue then current = minValue end
-    if current > maxValue then current = maxValue end
-    PFH_DB[key] = current
-
-    local default = defaultValue
-    if type(default) ~= "number" then
-      default = current
-    end
-    if default < minValue then default = minValue end
-    if default > maxValue then default = maxValue end
-
-    local setting = RegisterSetting(key, name, default)
-    OnChangedFor(key, setting)
-
-    if Settings.CreateSliderOptions and Settings.CreateSlider then
-      local opts = Settings.CreateSliderOptions(minValue, maxValue, step)
-
-      -- Show percentage on the right, even though the
-      -- stored value is a 0-1 alpha.
-      if MinimalSliderWithSteppersMixin and MinimalSliderWithSteppersMixin.Label and MinimalSliderWithSteppersMixin.Label.Right and opts.SetLabelFormatter then
-        opts:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
-          if FormatPercentage then
-            return FormatPercentage(value, true)
-          else
-            return string.format("%d%%", math.floor((value * 100) + 0.5))
-          end
-        end)
-      end
-
-      Settings.CreateSlider(category, setting, opts, tooltip)
-    elseif Settings.CreateSlider then
-      -- older signature fallback
-      Settings.CreateSlider(category, setting, minValue, maxValue, step, tooltip)
-    end
-
-    return setting
-  end
-
-  local function AddHeader(text)
-    if layout and type(layout.AddInitializer) == "function"
-      and type(CreateSettingsListSectionHeaderInitializer) == "function" then
-      layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
-    end
-  end
-
-  AddCheckbox(
-    "enabled",
-    "Enable Player Frame Hider",
-    "Enables or disables Player Frame Hider.\n\nChanges require a UI reload."
-  )
-
-  AddCheckbox(
-    "hidePlayerFrame",
-    "Hide player frame",
-    "Hide the Blizzard Player Frame by default. The options below control when it is shown again."
-  )
-
-  AddSlider(
-    "hiddenAlpha",
-    "Hidden alpha",
-    "Opacity when hidden (0% = fully hidden, 100% = fully visible).",
-    0, 1, 0.05, DEFAULTS.hiddenAlpha
-  )
-
-  AddCheckbox(
-    "showInCombat",
-    "Show in combat",
-    "Show the Player Frame while you are in combat."
-  )
-
-  AddCheckbox(
-    "showIfTarget",
-    "Show with target",
-    "Show the Player Frame when you have a target selected."
-  )
-
-  AddCheckbox(
-    "showWhenHealthBelow100",
-    "Show on health change",
-    "Temporarily show the Player Frame after your health changes."
-  )
-
-  AddCheckbox(
-    "hoverRevealOutOfCombat",
-    "Hover to show out of combat",
-    "When the Player Frame is hidden out of combat, moving your mouse over its area temporarily shows it until you move your mouse away."
-  )
-
-  AddCheckbox(
-    "alwaysShowInInstance",
-    "Always show in instances",
-    "Always show the player frame and widgets in dungeons, raids, PvP, scenarios, and delves."
-  )
-
-  AddHeader("Cooldowns and buffs")
-
-  AddCheckbox(
-    "controlEssentialCooldowns",
-    "Manage Essential Cooldowns",
-    "Hide out of combat. Shows in combat or with an attackable target.\n\nChanges require a UI reload."
-  )
-
-  AddCheckbox(
-    "controlUtilityCooldowns",
-    "Manage Utility Cooldowns",
-    "Hide out of combat. Shows in combat or with an attackable target.\n\nChanges require a UI reload."
-  )
-
-  AddCheckbox(
-    "controlTrackedBuffs",
-    "Manage Tracked Buffs",
-    "Hide out of combat. Shows in combat or with an attackable target.\n\nChanges require a UI reload."
-  )
-
-end
-
--- =========================================================
--- Events
--- =========================================================
-local function OnLogin()
-  if state.didInit then
-    -- Still refresh combat flag and apply, but don't re-run init/setup.
-    state.inCombat = UnitAffectingCombat("player") and true or false
-    Apply()
-    return
-  end
-  state.didInit = true
-
-  ApplyDefaults()
-  state.inCombat = UnitAffectingCombat("player") and true or false
-
-  CreateOptionsPanel()
-  InitPlayerFrame()
-  ResolveWidgetFramesWithRetries()
-
-  if not state.loadMessageShown then
-    print("|cFF00FF00PlayerFrameHider:|r v" .. VERSION .. " Loaded. Use |cFFFFA500/pfh|r to open options.")
-    state.loadMessageShown = true
-  end
-
-  Apply()
-end
-
-local function OnRegenDisabled()
-  state.inCombat = true
-  Apply()
-end
-
-local function OnRegenEnabled()
-  state.inCombat = false
-  Apply()
-end
-
-local function OnTargetOrZoneChanged()
-  Apply()
-end
-
-local function OnPlayerHealthChanged(unit)
-  if unit ~= "player" then return end
-  if PFH_DB.showWhenHealthBelow100 then
-    MarkHurt()
-    EnsureHurtTicker()
-  end
-  Apply()
-end
-
-eventFrame:RegisterEvent("PLAYER_LOGIN")
-eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
-eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-eventFrame:RegisterEvent("UNIT_HEALTH")
-eventFrame:RegisterEvent("UNIT_MAXHEALTH")
-eventFrame:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED")
-eventFrame:RegisterEvent("UNIT_HEAL_PREDICTION")
-
-eventFrame:SetScript("OnEvent", function(_, event, unit)
-  if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
-    OnLogin()
-    return
-  end
-
-  HookOnce()
-
-  if event == "PLAYER_REGEN_DISABLED" then
-    OnRegenDisabled()
-    return
-  end
-
-  if event == "PLAYER_REGEN_ENABLED" then
-    OnRegenEnabled()
-    return
-  end
-
-  if event == "PLAYER_TARGET_CHANGED" or event == "ZONE_CHANGED_NEW_AREA" then
-    OnTargetOrZoneChanged()
-    return
-  end
-
-  if event == "UNIT_HEALTH"
-    or event == "UNIT_MAXHEALTH"
-    or event == "UNIT_ABSORB_AMOUNT_CHANGED"
-    or event == "UNIT_HEAL_PREDICTION"
-  then
-    OnPlayerHealthChanged(unit)
-  end
-end)
+PFH.HookOnce = HookOnce
+PFH.InitPlayerFrame = InitPlayerFrame
