@@ -141,17 +141,29 @@ local function MarkHurt()
   state.hurtUntil = GetTime() + HURT_GRACE_SECONDS
 end
 
+local function IsRelevantInstance()
+  local inInstance, instanceType = IsInInstance()
+  if inInstance then
+    if instanceType == "party"
+      or instanceType == "raid"
+      or instanceType == "pvp"
+      or instanceType == "arena"
+      or instanceType == "scenario"
+      or instanceType == "delve" then
+      return true
+    end
+  end
+
+  if C_Scenario and C_Scenario.IsInScenario and C_Scenario.IsInScenario() then
+    return true
+  end
+
+  return false
+end
+
 local function IsAlwaysShowInstance()
   if not PFH_DB.alwaysShowInInstance then return false end
-  local inInstance, instanceType = IsInInstance()
-  if not inInstance then return false end
-
-  return instanceType == "party"
-    or instanceType == "raid"
-    or instanceType == "pvp"
-    or instanceType == "arena"
-    or instanceType == "scenario"
-    or instanceType == "delve"
+  return IsRelevantInstance()
 end
 
 local function IsInCombat()
@@ -271,6 +283,10 @@ end
 
 local function ShouldShowObjectiveTracker()
   if PFH_DB.enabled == false then
+    return true
+  end
+
+  if IsAlwaysShowInstance() then
     return true
   end
 
