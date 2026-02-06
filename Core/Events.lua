@@ -24,7 +24,9 @@ local function OnLogin()
   if PFH.InitWorldMapHooks then
     PFH.InitWorldMapHooks()
   end
-  PFH.ResolveWidgetFramesWithRetries()
+  if PFH.NeedWidgets and PFH.NeedWidgets() then
+    PFH.ResolveWidgetFramesWithRetries()
+  end
 
   if not state.loadMessageShown then
     local version = PFH.VERSION or "dev"
