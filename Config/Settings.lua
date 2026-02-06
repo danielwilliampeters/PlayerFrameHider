@@ -200,6 +200,86 @@ function PFH.CreateSettingsPanel()
     end
   end
 
+  local function AddCooldownDropdown()
+    local function DerivePreset()
+      local e = PFH_DB.controlEssentialCooldowns and true or false
+      local u = PFH_DB.controlUtilityCooldowns and true or false
+      local b = PFH_DB.controlTrackedBuffs and true or false
+
+      if not e and not u and not b then return 0 end
+      if e and not u and not b then return 1 end
+      if e and u and not b then return 2 end
+      if e and u and b then return 3 end
+
+      -- Mixed/odd combos -> best effort
+      return 3
+    end
+
+    local key = "cooldownDisplayMode"
+    local varName = VarNameFor(key)
+
+    -- Seed once: preserve existing saved values
+    if PFH_DB[varName] == nil then
+      PFH_DB[varName] = DerivePreset()
+    end
+    if PFH_DB[key] == nil then
+      PFH_DB[key] = PFH_DB[varName]
+    end
+
+    local defaultValue = DerivePreset()
+
+    local ok, setting = pcall(Settings.RegisterAddOnSetting,
+      category,
+      varName,
+      varName,
+      PFH_DB,
+      (Settings.VarType and Settings.VarType.Number) or "number",
+      "Cooldown Manager visibility",
+      defaultValue
+    )
+    if not (ok and setting) then
+      error(("PlayerFrameHider: RegisterAddOnSetting failed for %s (%s): %s"):format(key, tostring(varName), tostring(setting)))
+    end
+
+    local function GetCooldownOptions()
+      local container = Settings.CreateControlTextContainer()
+      container:Add(0, "Off")
+      container:Add(1, "Essential only")
+      container:Add(2, "Essential + Utility")
+      container:Add(3, "All (incl. tracked buffs)")
+      return container:GetData()
+    end
+
+    local tooltip = "Choose which parts of the Blizzard Cooldown Manager are shown or hidden automatically.\n\nMay require a UI reload."
+
+    if Settings.CreateDropdown and Settings.CreateControlTextContainer then
+      Settings.CreateDropdown(category, setting, GetCooldownOptions, tooltip)
+    end
+
+    if Settings.SetOnValueChangedCallback then
+      Settings.SetOnValueChangedCallback(varName, function()
+        if inCallback then return end
+        inCallback = true
+
+        local value = tonumber(setting:GetValue()) or 0
+        if value < 0 then value = 0 end
+        if value > 3 then value = 3 end
+
+        PFH_DB[varName] = value
+        PFH_DB[key] = value
+
+        PFH_DB.controlEssentialCooldowns = (value >= 1)
+        PFH_DB.controlUtilityCooldowns   = (value >= 2)
+        PFH_DB.controlTrackedBuffs       = (value >= 3)
+
+        PFH.ResolveWidgetFramesOnce()
+        PFH.Apply()
+
+        inCallback = false
+      end)
+    end
+  end
+
   AddCheckbox(
     "enabled",
     "Enable Player Frame Hider",
@@ -251,25 +331,8 @@ function PFH.CreateSettingsPanel()
     "Temporarily show the Player Frame when your health changes.\n\nThis rule does not affect cooldowns."
   )
 
-  AddHeader("Cooldown displays")
-
-  AddCheckbox(
-    "controlEssentialCooldowns",
-    "Essential Cooldowns",
-    "Control visibility. Hidden out of combat; shown in combat or when targeting an attackable enemy.\n\nRequires a UI reload."
-  )
-
-  AddCheckbox(
-    "controlUtilityCooldowns",
-    "Utility Cooldowns",
-    "Control visibility. Hidden out of combat; shown in combat or when targeting an attackable enemy.\n\nRequires a UI reload."
-  )
-
-  AddCheckbox(
-    "controlTrackedBuffs",
-    "Tracked Buffs",
-    "Control visibility. Hidden out of combat; shown in combat or when targeting an attackable enemy.\n\nRequires a UI reload."
-  )
+  AddHeader("Cooldown Manager")
+  AddCooldownDropdown()
 
   AddHeader("Objective Tracker")
 
