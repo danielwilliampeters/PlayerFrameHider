@@ -205,7 +205,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "alwaysShowInInstance",
     "Always show in instances",
-    "Forces all supported UI elements to stay visible in instances (Player Frame, cooldowns/buffs, and the Objective Tracker)."
+    "Forces all supported UI elements to stay visible in instances (player UI, cooldowns/buffs, and the Objective Tracker)."
   )
 
   AddCheckbox(
@@ -247,7 +247,7 @@ function PFH.CreateSettingsPanel()
     "Temporarily show the Player Frame when your health changes.\n\nThis rule does not affect cooldowns."
   )
 
-  AddHeader("Cooldowns and buffs")
+  AddHeader("Cooldown displays")
 
   AddCheckbox(
     "controlEssentialCooldowns",
