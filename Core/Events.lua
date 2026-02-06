@@ -21,6 +21,9 @@ local function OnLogin()
   end
   PFH.InitPlayerFrame()
   PFH.InitObjectiveFrame()
+  if PFH.InitWorldMapHooks then
+    PFH.InitWorldMapHooks()
+  end
   PFH.ResolveWidgetFramesWithRetries()
 
   if not state.loadMessageShown then

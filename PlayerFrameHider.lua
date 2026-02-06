@@ -78,6 +78,9 @@ PFH.state = PFH.state or {
   objectiveHoverOverride = false,
   objectiveHoverHideTimer = nil,
 
+  -- world map hooks
+  worldMapHooked = false,
+
   -- widget frames
   EssentialCDFrame = nil,
   UtilityCDFrame = nil,
@@ -213,6 +216,14 @@ local function GetObjectiveHoverHideDelay()
   return v
 end
 
+local function IsWorldMapOpen()
+  local map = _G.WorldMapFrame
+  if map and map.IsShown and map:IsShown() then
+    return true
+  end
+  return false
+end
+
 -- =========================================================
 -- Frame resolution (Edit Mode widgets)
 -- =========================================================
@@ -287,6 +298,12 @@ local function ShouldShowObjectiveTracker()
   end
 
   if IsAlwaysShowInstance() then
+    return true
+  end
+
+  -- Always show objectives when the world map is open so
+  -- the quest list remains visible alongside the map.
+  if IsWorldMapOpen() then
     return true
   end
 
@@ -410,6 +427,27 @@ local function InitObjectiveFrame()
     elseif tries >= 50 then
       ticker:Cancel()
     end
+  end)
+end
+
+-- =========================================================
+-- World map hooks (keep objectives visible with map)
+-- =========================================================
+
+local function InitWorldMapHooks()
+  if state.worldMapHooked then return end
+
+  local map = _G.WorldMapFrame
+  if not map or not map.HookScript then return end
+
+  state.worldMapHooked = true
+
+  map:HookScript("OnShow", function()
+    Apply()
+  end)
+
+  map:HookScript("OnHide", function()
+    Apply()
   end)
 end
 
@@ -615,3 +653,4 @@ PFH.SetObjectiveTrackerVisible = SetObjectiveTrackerVisible
 PFH.ShouldShowObjectiveTracker = ShouldShowObjectiveTracker
 PFH.InitObjectiveFrame = InitObjectiveFrame
 PFH.OnObjectiveUpdated = OnObjectiveUpdated
+PFH.InitWorldMapHooks = InitWorldMapHooks
