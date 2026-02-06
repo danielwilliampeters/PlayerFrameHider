@@ -19,6 +19,8 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
+  hideObjectiveTracker = false,
+  objectiveHoverHideDelay = 3.0,
   showInCombat = true,
   showIfTarget = true,
   showWhenHealthBelow100 = true,
@@ -69,6 +71,12 @@ PFH.state = PFH.state or {
   -- hover hide delay
   hoverHideTimer = nil,
 
+  -- objective tracker
+  ObjectiveFrame = nil,
+  objectiveHooked = false,
+  objectiveHoverOverride = false,
+  objectiveHoverHideTimer = nil,
+
   -- widget frames
   EssentialCDFrame = nil,
   UtilityCDFrame = nil,
@@ -102,6 +110,15 @@ function PFH.ApplyDefaults()
   if PFH_DB.showIfTarget == nil then PFH_DB.showIfTarget = DEFAULTS.showIfTarget end
   if PFH_DB.showWhenHealthBelow100 == nil then PFH_DB.showWhenHealthBelow100 = DEFAULTS.showWhenHealthBelow100 end
   if PFH_DB.hoverRevealOutOfCombat == nil then PFH_DB.hoverRevealOutOfCombat = DEFAULTS.hoverRevealOutOfCombat end
+
+  if PFH_DB.hideObjectiveTracker == nil then PFH_DB.hideObjectiveTracker = DEFAULTS.hideObjectiveTracker end
+
+  if type(PFH_DB.objectiveHoverHideDelay) ~= "number" then
+    PFH_DB.objectiveHoverHideDelay = DEFAULTS.objectiveHoverHideDelay
+  end
+  if PFH_DB.objectiveHoverHideDelay < 0 then
+    PFH_DB.objectiveHoverHideDelay = 0
+  end
 
   if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = DEFAULTS.controlEssentialCooldowns end
   if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = DEFAULTS.controlUtilityCooldowns end
@@ -172,6 +189,15 @@ local function ShouldShowWidgets()
   return IsInCombat() or HasEnemyTarget()
 end
 
+local function GetObjectiveHoverHideDelay()
+  local v = PFH_DB.objectiveHoverHideDelay
+  if type(v) ~= "number" then
+    v = PFH.DEFAULTS.objectiveHoverHideDelay or 1.0
+  end
+  if v < 0 then v = 0 end
+  return v
+end
+
 -- =========================================================
 -- Frame resolution (Edit Mode widgets)
 -- =========================================================
@@ -217,6 +243,124 @@ local function ResolveWidgetFramesWithRetries()
     Apply()
 
     if HaveRequiredWidgets() or tries >= 10 then
+      ticker:Cancel()
+    end
+  end)
+end
+
+-- =========================================================
+-- Objective tracker visibility (hover reveal)
+-- =========================================================
+
+local function GetObjectiveFrame()
+  if state.ObjectiveFrame and state.ObjectiveFrame.GetAlpha then
+    return state.ObjectiveFrame
+  end
+
+  local frame = _G.ObjectiveTrackerFrame or _G.ObjectivesFrame or _G.QuestWatchFrame
+  if frame and frame.GetAlpha then
+    state.ObjectiveFrame = frame
+    return frame
+  end
+
+  return nil
+end
+
+local function ShouldShowObjectiveTracker()
+  if PFH_DB.enabled == false then
+    return true
+  end
+
+  if not PFH_DB.hideObjectiveTracker then
+    return true
+  end
+
+  if state.objectiveHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function SetObjectiveTrackerVisible(wantVisible)
+  local frame = GetObjectiveFrame()
+  if not frame then return end
+
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
+
+  if wantVisible then
+    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+  else
+    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
+  end
+end
+
+local function OnObjectiveEnter()
+  if not PFH_DB.enabled then return end
+  if not PFH_DB.hideObjectiveTracker then return end
+
+  if state.objectiveHoverHideTimer then
+    state.objectiveHoverHideTimer:Cancel()
+    state.objectiveHoverHideTimer = nil
+  end
+
+  state.objectiveHoverOverride = true
+  Apply()
+end
+
+local function OnObjectiveLeave()
+  if not PFH_DB.hideObjectiveTracker then return end
+
+  if state.objectiveHoverHideTimer then
+    state.objectiveHoverHideTimer:Cancel()
+    state.objectiveHoverHideTimer = nil
+  end
+
+  local delay = GetObjectiveHoverHideDelay()
+
+  state.objectiveHoverHideTimer = C_Timer.NewTimer(delay, function()
+    state.objectiveHoverHideTimer = nil
+    if not PFH_DB.hideObjectiveTracker then return end
+    state.objectiveHoverOverride = false
+    Apply()
+  end)
+end
+
+local function HookObjectiveOnce()
+  if state.objectiveHooked then return end
+
+  local frame = GetObjectiveFrame()
+  if not frame then return end
+
+  state.objectiveHooked = true
+  state.ObjectiveFrame = frame
+
+  if frame.SetHitRectInsets then
+    local l, r, t, b = frame:GetHitRectInsets()
+    l, r, t, b = l or 0, r or 0, t or 0, b or 0
+    frame:SetHitRectInsets(l - 10, r + 10, t - 10, b + 10)
+  end
+
+  if frame.EnableMouse then
+    frame:EnableMouse(true)
+  end
+
+  frame:HookScript("OnEnter", OnObjectiveEnter)
+  frame:HookScript("OnLeave", OnObjectiveLeave)
+
+  Apply()
+end
+
+local function InitObjectiveFrame()
+  local tries = 0
+  local ticker
+  ticker = C_Timer.NewTicker(0.2, function()
+    tries = tries + 1
+
+    if GetObjectiveFrame() then
+      HookObjectiveOnce()
+      ticker:Cancel()
+    elseif tries >= 50 then
       ticker:Cancel()
     end
   end)
@@ -311,6 +455,8 @@ function Apply()
   if not PlayerFrame then return end
 
   SetPlayerFrameVisible(ShouldShowPlayerFrame())
+
+  SetObjectiveTrackerVisible(ShouldShowObjectiveTracker())
 
   ApplyWidget(state.EssentialCDFrame, PFH_DB.controlEssentialCooldowns)
   ApplyWidget(state.UtilityCDFrame, PFH_DB.controlUtilityCooldowns)
@@ -418,3 +564,6 @@ PFH.Apply = Apply
 
 PFH.HookOnce = HookOnce
 PFH.InitPlayerFrame = InitPlayerFrame
+PFH.SetObjectiveTrackerVisible = SetObjectiveTrackerVisible
+PFH.ShouldShowObjectiveTracker = ShouldShowObjectiveTracker
+PFH.InitObjectiveFrame = InitObjectiveFrame

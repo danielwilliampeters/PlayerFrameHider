@@ -222,4 +222,12 @@ function PFH.CreateOptionsPanel()
     "Tracked Buffs",
     "Control visibility. Hidden out of combat; shown in combat or when targeting an attackable enemy.\n\nRequires a UI reload."
   )
+
+  AddHeader("Objective Tracker")
+
+  AddCheckbox(
+    "hideObjectiveTracker",
+    "Hide objective tracker (hover to show)",
+    "Hide the Objective Tracker and show it again when you move the mouse over it."
+  )
 end

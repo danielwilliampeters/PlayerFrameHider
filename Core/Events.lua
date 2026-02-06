@@ -18,6 +18,7 @@ local function OnLogin()
 
   PFH.CreateOptionsPanel()
   PFH.InitPlayerFrame()
+  PFH.InitObjectiveFrame()
   PFH.ResolveWidgetFramesWithRetries()
 
   if not state.loadMessageShown then
