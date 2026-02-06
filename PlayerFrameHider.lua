@@ -21,6 +21,7 @@ PFH.DEFAULTS = {
   hidePlayerFrame = true,
   hideObjectiveTracker = false,
   objectiveHoverHideDelay = 3.0,
+  showObjectiveUpdates = true,
   showInCombat = true,
   showIfTarget = true,
   showWhenHealthBelow100 = true,
@@ -112,6 +113,8 @@ function PFH.ApplyDefaults()
   if PFH_DB.hoverRevealOutOfCombat == nil then PFH_DB.hoverRevealOutOfCombat = DEFAULTS.hoverRevealOutOfCombat end
 
   if PFH_DB.hideObjectiveTracker == nil then PFH_DB.hideObjectiveTracker = DEFAULTS.hideObjectiveTracker end
+
+  if PFH_DB.showObjectiveUpdates == nil then PFH_DB.showObjectiveUpdates = DEFAULTS.showObjectiveUpdates end
 
   if type(PFH_DB.objectiveHoverHideDelay) ~= "number" then
     PFH_DB.objectiveHoverHideDelay = DEFAULTS.objectiveHoverHideDelay
@@ -317,6 +320,32 @@ local function OnObjectiveLeave()
   end
 
   local delay = GetObjectiveHoverHideDelay()
+
+  state.objectiveHoverHideTimer = C_Timer.NewTimer(delay, function()
+    state.objectiveHoverHideTimer = nil
+    if not PFH_DB.hideObjectiveTracker then return end
+    state.objectiveHoverOverride = false
+    Apply()
+  end)
+end
+
+-- Triggered when the game updates objectives (quests, scenarios, etc.).
+-- Briefly shows the objective tracker if it's being hidden by the addon.
+local function OnObjectiveUpdated()
+  if not PFH_DB.enabled then return end
+  if not PFH_DB.hideObjectiveTracker then return end
+  if not PFH_DB.showObjectiveUpdates then return end
+
+  if state.objectiveHoverHideTimer then
+    state.objectiveHoverHideTimer:Cancel()
+    state.objectiveHoverHideTimer = nil
+  end
+
+  state.objectiveHoverOverride = true
+  Apply()
+
+  local delay = GetObjectiveHoverHideDelay()
+  if delay <= 0 then return end
 
   state.objectiveHoverHideTimer = C_Timer.NewTimer(delay, function()
     state.objectiveHoverHideTimer = nil
@@ -567,3 +596,4 @@ PFH.InitPlayerFrame = InitPlayerFrame
 PFH.SetObjectiveTrackerVisible = SetObjectiveTrackerVisible
 PFH.ShouldShowObjectiveTracker = ShouldShowObjectiveTracker
 PFH.InitObjectiveFrame = InitObjectiveFrame
+PFH.OnObjectiveUpdated = OnObjectiveUpdated

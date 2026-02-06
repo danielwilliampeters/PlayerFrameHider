@@ -55,6 +55,12 @@ local function OnPlayerHealthChanged(unit)
   PFH.Apply()
 end
 
+local function OnObjectiveTrackerChanged()
+  if PFH.OnObjectiveUpdated then
+    PFH.OnObjectiveUpdated()
+  end
+end
+
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -65,6 +71,11 @@ eventFrame:RegisterEvent("UNIT_HEALTH")
 eventFrame:RegisterEvent("UNIT_MAXHEALTH")
 eventFrame:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED")
 eventFrame:RegisterEvent("UNIT_HEAL_PREDICTION")
+-- Objective tracking / quest progress updates
+eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
+eventFrame:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
+eventFrame:RegisterEvent("SCENARIO_UPDATE")
+eventFrame:RegisterEvent("SCENARIO_CRITERIA_UPDATE")
 
 eventFrame:SetScript("OnEvent", function(_, event, unit)
   if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
@@ -95,5 +106,14 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
     or event == "UNIT_HEAL_PREDICTION"
   then
     OnPlayerHealthChanged(unit)
+    return
+  end
+
+  if event == "QUEST_LOG_UPDATE"
+    or event == "QUEST_WATCH_LIST_CHANGED"
+    or event == "SCENARIO_UPDATE"
+    or event == "SCENARIO_CRITERIA_UPDATE"
+  then
+    OnObjectiveTrackerChanged()
   end
 end)
