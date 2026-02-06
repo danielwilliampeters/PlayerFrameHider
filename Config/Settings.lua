@@ -115,6 +115,10 @@ function PFH.CreateSettingsPanel()
           state.hoverHideTimer = nil
         end
         state.hoverOverride = false
+        if state.objectiveHoverHideTimer then
+          state.objectiveHoverHideTimer:Cancel()
+          state.objectiveHoverHideTimer = nil
+        end
         state.objectiveHoverOverride = false
       end
 
