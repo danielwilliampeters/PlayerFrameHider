@@ -76,7 +76,6 @@ PFH.state = PFH.state or {
   ObjectiveFrame = nil,
   objectiveHooked = false,
   objectiveHoverOverride = false,
-  objectiveHoverHideTimer = nil,
 
   -- widget frames
   EssentialCDFrame = nil,
@@ -317,10 +316,11 @@ end
 local function OnObjectiveEnter()
   if not PFH_DB.enabled then return end
   if not PFH_DB.hideObjectiveTracker then return end
+  if not PFH_DB.hoverRevealOutOfCombat then return end
 
-  if state.objectiveHoverHideTimer then
-    state.objectiveHoverHideTimer:Cancel()
-    state.objectiveHoverHideTimer = nil
+  if state.hoverHideTimer then
+    state.hoverHideTimer:Cancel()
+    state.hoverHideTimer = nil
   end
 
   state.objectiveHoverOverride = true
@@ -329,16 +329,17 @@ end
 
 local function OnObjectiveLeave()
   if not PFH_DB.hideObjectiveTracker then return end
+  if not PFH_DB.hoverRevealOutOfCombat then return end
 
-  if state.objectiveHoverHideTimer then
-    state.objectiveHoverHideTimer:Cancel()
-    state.objectiveHoverHideTimer = nil
+  if state.hoverHideTimer then
+    state.hoverHideTimer:Cancel()
+    state.hoverHideTimer = nil
   end
 
   local delay = GetObjectiveHoverHideDelay()
 
-  state.objectiveHoverHideTimer = C_Timer.NewTimer(delay, function()
-    state.objectiveHoverHideTimer = nil
+  state.hoverHideTimer = C_Timer.NewTimer(delay, function()
+    state.hoverHideTimer = nil
     if not PFH_DB.hideObjectiveTracker then return end
     state.objectiveHoverOverride = false
     Apply()
@@ -352,9 +353,9 @@ local function OnObjectiveUpdated()
   if not PFH_DB.hideObjectiveTracker then return end
   if not PFH_DB.showObjectiveUpdates then return end
 
-  if state.objectiveHoverHideTimer then
-    state.objectiveHoverHideTimer:Cancel()
-    state.objectiveHoverHideTimer = nil
+  if state.hoverHideTimer then
+    state.hoverHideTimer:Cancel()
+    state.hoverHideTimer = nil
   end
 
   state.objectiveHoverOverride = true
@@ -363,8 +364,8 @@ local function OnObjectiveUpdated()
   local delay = GetObjectiveHoverHideDelay()
   if delay <= 0 then return end
 
-  state.objectiveHoverHideTimer = C_Timer.NewTimer(delay, function()
-    state.objectiveHoverHideTimer = nil
+  state.hoverHideTimer = C_Timer.NewTimer(delay, function()
+    state.hoverHideTimer = nil
     if not PFH_DB.hideObjectiveTracker then return end
     state.objectiveHoverOverride = false
     Apply()

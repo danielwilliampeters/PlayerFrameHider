@@ -106,6 +106,18 @@ function PFH.CreateSettingsPanel()
         state.hurtUntil = 0
       end
 
+      if key == "hoverRevealOutOfCombat" and not PFH_DB.hoverRevealOutOfCombat then
+        -- Turning off hover reveal should immediately clear any
+        -- hover overrides/timers for both the player frame and
+        -- the objective tracker.
+        if state.hoverHideTimer then
+          state.hoverHideTimer:Cancel()
+          state.hoverHideTimer = nil
+        end
+        state.hoverOverride = false
+        state.objectiveHoverOverride = false
+      end
+
       PFH.ResolveWidgetFramesOnce()
       PFH.Apply()
 
@@ -190,7 +202,19 @@ function PFH.CreateSettingsPanel()
     "Turns Player Frame Hider on or off.\n\nRequires a UI reload."
   )
 
-  AddHeader("Visibility")
+  AddCheckbox(
+    "alwaysShowInInstance",
+    "Always show in instances",
+    "Forces all supported UI elements to stay visible in instances (Player Frame, cooldowns/buffs, and the Objective Tracker)."
+  )
+
+  AddCheckbox(
+    "hoverRevealOutOfCombat",
+    "Hover to reveal",
+    "When hidden, hovering over supported UI areas temporarily reveals them."
+  )
+
+  AddHeader("Player Frame & Cooldowns")
 
   AddCheckbox(
     "hidePlayerFrame",
@@ -208,31 +232,19 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "showInCombat",
     "Show in combat",
-    "Always show the Player Frame while you are in combat."
+    "Always show the Player Frame and cooldown displays while you are in combat."
   )
 
   AddCheckbox(
     "showIfTarget",
     "Show with target",
-    "Show the Player Frame when you have a target selected."
+    "Show the Player Frame and cooldown displays when you have a target selected."
   )
 
   AddCheckbox(
     "showWhenHealthBelow100",
     "Show on health change",
-    "Temporarily show the Player Frame when your health changes."
-  )
-
-  AddCheckbox(
-    "hoverRevealOutOfCombat",
-    "Hover to reveal (out of combat)",
-    "When hidden out of combat, hovering over the Player Frame area temporarily reveals it."
-  )
-
-  AddCheckbox(
-    "alwaysShowInInstance",
-    "Always show in instances",
-    "Always show the Player Frame and related widgets in dungeons, raids, PvP, scenarios, and delves."
+    "Temporarily show the Player Frame when your health changes.\n\nThis rule does not affect cooldowns."
   )
 
   AddHeader("Cooldowns and buffs")
@@ -260,7 +272,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "hideObjectiveTracker",
     "Hide objective tracker",
-    "Automatically hides the Objective Tracker when idle. It reappears when objectives update or when you move the mouse over it."
+    "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nTip: Enable \"Hover to reveal\" to temporarily show it on mouseover."
   )
 
   return category
