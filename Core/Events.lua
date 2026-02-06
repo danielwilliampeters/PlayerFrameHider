@@ -16,7 +16,9 @@ local function OnLogin()
   PFH.ApplyDefaults()
   state.inCombat = UnitAffectingCombat("player") and true or false
 
-  PFH.CreateOptionsPanel()
+  if PFH.CreateSettingsPanel then
+    PFH.CreateSettingsPanel()
+  end
   PFH.InitPlayerFrame()
   PFH.InitObjectiveFrame()
   PFH.ResolveWidgetFramesWithRetries()
