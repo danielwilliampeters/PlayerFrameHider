@@ -259,8 +259,8 @@ function PFH.CreateSettingsPanel()
 
   AddCheckbox(
     "hideObjectiveTracker",
-    "Hide objective tracker (hover to show)",
-    "Hide the Objective Tracker and show it again when you move the mouse over it."
+    "Hide objective tracker",
+    "Automatically hides the Objective Tracker when idle. It reappears when objectives update or when you move the mouse over it."
   )
 
   return category

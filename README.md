@@ -12,6 +12,7 @@ A World of Warcraft addon that automatically manages the visibility of the Playe
 - **Hover reveal (out of combat)**: When hidden out of combat, hovering over the player frame area temporarily reveals it
 - **Instance-aware**: Always show the player frame and widgets in dungeons, raids, raids, PvP, scenarios, and delves
 - **Edit Mode widget control**: Fade Essential Cooldowns, Utility Cooldowns, and Tracked Buffs while out of combat
+- **Objective tracker integration**: Optionally hide the Objective Tracker and show it again on mouseover; by default, objective/quest updates briefly reveal it so you can see what changed
 - **Polished options UI**: Blizzard-style categorized settings with clear sections and helpful descriptions
 - **Slash commands**: Quick access via `/pfh` or `/playerframehider`
 
