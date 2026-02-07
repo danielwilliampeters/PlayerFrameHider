@@ -76,11 +76,11 @@ eventFrame:RegisterEvent("UNIT_HEALTH")
 eventFrame:RegisterEvent("UNIT_MAXHEALTH")
 eventFrame:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED")
 eventFrame:RegisterEvent("UNIT_HEAL_PREDICTION")
--- Objective tracking / quest progress updates
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 eventFrame:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
 eventFrame:RegisterEvent("SCENARIO_UPDATE")
 eventFrame:RegisterEvent("SCENARIO_CRITERIA_UPDATE")
+eventFrame:RegisterEvent("SUPER_TRACKING_CHANGED")
 
 eventFrame:SetScript("OnEvent", function(_, event, unit)
   if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
@@ -118,6 +118,7 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
     or event == "QUEST_WATCH_LIST_CHANGED"
     or event == "SCENARIO_UPDATE"
     or event == "SCENARIO_CRITERIA_UPDATE"
+    or event == "SUPER_TRACKING_CHANGED"
   then
     OnObjectiveTrackerChanged()
   end

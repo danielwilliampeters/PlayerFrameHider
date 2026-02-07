@@ -22,6 +22,7 @@ PFH.DEFAULTS = {
   hideObjectiveTracker = false,
   objectiveHoverHideDelay = 3.0,
   showObjectiveUpdates = true,
+  forceShowTrackerWhenSuperTracked = true,
   showInCombat = true,
   showIfTarget = true,
   showWhenHealthBelow100 = true,
@@ -123,6 +124,7 @@ function PFH.ApplyDefaults()
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
   ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
   ApplyDefault("showObjectiveUpdates", D.showObjectiveUpdates)
+  ApplyDefault("forceShowTrackerWhenSuperTracked", D.forceShowTrackerWhenSuperTracked)
   ApplyDefault("alwaysShowInInstance", D.alwaysShowInInstance)
 
   ApplyNumberDefault("objectiveHoverHideDelay", D.objectiveHoverHideDelay, 0)
@@ -316,7 +318,20 @@ local function GetObjectiveFrame()
   return nil
 end
 
-local function ShouldShowObjectiveTracker()
+local function HasSuperTrackedQuest()
+  if not C_SuperTrack or not C_SuperTrack.GetSuperTrackedQuestID then
+    return false
+  end
+
+  local questID = C_SuperTrack.GetSuperTrackedQuestID()
+  if not questID or questID == 0 then
+    return false
+  end
+
+  return true
+end
+
+local function BaseShouldShowObjectiveTracker()
   if not PFH_DB.enabled then
     return true
   end
@@ -336,6 +351,20 @@ local function ShouldShowObjectiveTracker()
   end
 
   if state.objectiveHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowObjectiveTracker()
+  local show = BaseShouldShowObjectiveTracker()
+
+  if show then
+    return true
+  end
+
+  if PFH_DB.forceShowTrackerWhenSuperTracked and HasSuperTrackedQuest() then
     return true
   end
 

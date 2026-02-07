@@ -326,6 +326,12 @@ function PFH.CreateSettingsPanel()
     "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nTip: Enable \"Hover to reveal\" to temporarily show it on mouseover."
   )
 
+  AddCheckbox(
+    "forceShowTrackerWhenSuperTracked",
+    "Show tracker for active waypoint quest",
+    "If the Objective Tracker is hidden, it will be shown whenever you set a quest as your active waypoint."
+  )
+
   return category
 end
 
