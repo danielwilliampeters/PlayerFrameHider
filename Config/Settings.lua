@@ -287,30 +287,9 @@ function PFH.CreateSettingsPanel()
   )
 
   AddCheckbox(
-    "alwaysShowInInstance",
-    "Always show in instances",
-    "Forces all supported UI elements to stay visible in instances (player UI, cooldowns/buffs, and the Objective Tracker)."
-  )
-
-  AddCheckbox(
     "hoverRevealOutOfCombat",
     "Hover to reveal",
     "When hidden, hovering over supported UI areas temporarily reveals them."
-  )
-
-  AddHeader("Player Frame & Cooldowns")
-
-  AddCheckbox(
-    "hidePlayerFrame",
-    "Hide player frame",
-    "Hide the Blizzard Player Frame by default. The options below control when it becomes visible."
-  )
-
-  AddSlider(
-    "hiddenAlpha",
-    "Hidden alpha",
-    "Opacity used when the player frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-    0, 1, 0.05, DEFAULTS.hiddenAlpha
   )
 
   AddCheckbox(
@@ -326,12 +305,34 @@ function PFH.CreateSettingsPanel()
   )
 
   AddCheckbox(
+    "alwaysShowInInstance",
+    "Always show in instances",
+    "Forces all supported UI elements to stay visible in instances (player UI, cooldowns/buffs, and the Objective Tracker)."
+  )
+
+  AddHeader("Player Frame")
+
+  AddCheckbox(
+    "hidePlayerFrame",
+    "Hide player frame",
+    "Hide the Blizzard Player Frame by default. The options below control when it becomes visible."
+  )
+
+  AddSlider(
+    "hiddenAlpha",
+    "Hidden transparency",
+    "Opacity used when the player frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+    0, 1, 0.05, DEFAULTS.hiddenAlpha
+  )
+
+  AddCheckbox(
     "showWhenHealthBelow100",
     "Show on health change",
     "Temporarily show the Player Frame when your health changes.\n\nThis rule does not affect cooldowns."
   )
 
   AddHeader("Cooldown Manager")
+
   AddCooldownDropdown()
 
   AddHeader("Objective Tracker")
