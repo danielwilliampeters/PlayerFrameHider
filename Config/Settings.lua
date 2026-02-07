@@ -218,15 +218,17 @@ function PFH.CreateSettingsPanel()
     local key = "cooldownDisplayMode"
     local varName = VarNameFor(key)
 
-    -- Seed once: preserve existing saved values
-    if PFH_DB[varName] == nil then
-      PFH_DB[varName] = DerivePreset()
-    end
+    -- Ensure base mode exists
     if PFH_DB[key] == nil then
-      PFH_DB[key] = PFH_DB[varName]
+      PFH_DB[key] = DEFAULTS.cooldownDisplayMode or 0
     end
 
-    local defaultValue = DerivePreset()
+    -- Always seed the Settings variable from the base mode
+    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
+    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
+    if PFH_DB[varName] > 3 then PFH_DB[varName] = 3 end
+
+    local defaultValue = DEFAULTS.cooldownDisplayMode or 0
 
     local ok, setting = pcall(Settings.RegisterAddOnSetting,
       category,

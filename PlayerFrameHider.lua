@@ -29,6 +29,7 @@ PFH.DEFAULTS = {
   controlEssentialCooldowns = false,
   controlUtilityCooldowns = false,
   controlTrackedBuffs = false,
+  cooldownDisplayMode = 0,
   alwaysShowInInstance = true,
   hiddenAlpha = 0,
 }
@@ -126,9 +127,26 @@ function PFH.ApplyDefaults()
     PFH_DB.objectiveHoverHideDelay = 0
   end
 
-  if PFH_DB.controlEssentialCooldowns == nil then PFH_DB.controlEssentialCooldowns = DEFAULTS.controlEssentialCooldowns end
-  if PFH_DB.controlUtilityCooldowns == nil then PFH_DB.controlUtilityCooldowns = DEFAULTS.controlUtilityCooldowns end
-  if PFH_DB.controlTrackedBuffs == nil then PFH_DB.controlTrackedBuffs = DEFAULTS.controlTrackedBuffs end
+  -- Ensure mode exists
+  if PFH_DB.cooldownDisplayMode == nil then
+    PFH_DB.cooldownDisplayMode = DEFAULTS.cooldownDisplayMode or 0
+  end
+
+  -- Seed Settings var once
+  if PFH_DB.PFH_cooldownDisplayMode == nil then
+    PFH_DB.PFH_cooldownDisplayMode = PFH_DB.cooldownDisplayMode
+  end
+
+  -- Mode is source of truth
+  do
+    local m = tonumber(PFH_DB.cooldownDisplayMode) or 0
+    if m < 0 then m = 0 elseif m > 3 then m = 3 end
+    PFH_DB.cooldownDisplayMode = m
+
+    PFH_DB.controlEssentialCooldowns = (m >= 1)
+    PFH_DB.controlUtilityCooldowns   = (m >= 2)
+    PFH_DB.controlTrackedBuffs       = (m >= 3)
+  end
 
   if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = DEFAULTS.alwaysShowInInstance end
 
