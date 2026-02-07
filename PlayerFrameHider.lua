@@ -94,69 +94,75 @@ local state = PFH.state
 -- DB defaults / migration
 -- =========================================================
 
-function PFH.ApplyDefaults()
-  local DEFAULTS = PFH.DEFAULTS
-
-  -- master enable
-  if PFH_DB.enabled == nil then
-    PFH_DB.enabled = DEFAULTS.enabled
+-- Small helpers to keep ApplyDefaults readable
+local function ApplyDefault(key, value)
+  if PFH_DB[key] == nil then
+    PFH_DB[key] = value
   end
+end
+
+local function ApplyNumberDefault(key, value, minValue)
+  local v = PFH_DB[key]
+  if type(v) ~= "number" then
+    v = value
+  end
+  if minValue ~= nil and v < minValue then
+    v = minValue
+  end
+  PFH_DB[key] = v
+end
+
+function PFH.ApplyDefaults()
+  local D = PFH.DEFAULTS
+
+  -- basic defaults
+  ApplyDefault("enabled", D.enabled)
+  ApplyDefault("showInCombat", D.showInCombat)
+  ApplyDefault("showIfTarget", D.showIfTarget)
+  ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
+  ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
+  ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
+  ApplyDefault("showObjectiveUpdates", D.showObjectiveUpdates)
+  ApplyDefault("alwaysShowInInstance", D.alwaysShowInInstance)
+
+  ApplyNumberDefault("objectiveHoverHideDelay", D.objectiveHoverHideDelay, 0)
+  ApplyNumberDefault("hiddenAlpha", D.hiddenAlpha, 0)
+  PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
 
   -- migrate old hideOutOfCombat -> hidePlayerFrame
   if PFH_DB.hidePlayerFrame == nil then
     if PFH_DB.hideOutOfCombat ~= nil then
       PFH_DB.hidePlayerFrame = PFH_DB.hideOutOfCombat and true or false
     else
-      PFH_DB.hidePlayerFrame = DEFAULTS.hidePlayerFrame
+      PFH_DB.hidePlayerFrame = D.hidePlayerFrame
     end
   end
 
-  if PFH_DB.showInCombat == nil then PFH_DB.showInCombat = DEFAULTS.showInCombat end
-  if PFH_DB.showIfTarget == nil then PFH_DB.showIfTarget = DEFAULTS.showIfTarget end
-  if PFH_DB.showWhenHealthBelow100 == nil then PFH_DB.showWhenHealthBelow100 = DEFAULTS.showWhenHealthBelow100 end
-  if PFH_DB.hoverRevealOutOfCombat == nil then PFH_DB.hoverRevealOutOfCombat = DEFAULTS.hoverRevealOutOfCombat end
-
-  if PFH_DB.hideObjectiveTracker == nil then PFH_DB.hideObjectiveTracker = DEFAULTS.hideObjectiveTracker end
-
-  if PFH_DB.showObjectiveUpdates == nil then PFH_DB.showObjectiveUpdates = DEFAULTS.showObjectiveUpdates end
-
-  if type(PFH_DB.objectiveHoverHideDelay) ~= "number" then
-    PFH_DB.objectiveHoverHideDelay = DEFAULTS.objectiveHoverHideDelay
-  end
-  if PFH_DB.objectiveHoverHideDelay < 0 then
-    PFH_DB.objectiveHoverHideDelay = 0
-  end
-
-  -- Ensure mode exists
+  -- cooldown mode: seed once, then derive flags via SetCooldownMode
   if PFH_DB.cooldownDisplayMode == nil then
-    PFH_DB.cooldownDisplayMode = DEFAULTS.cooldownDisplayMode or 0
+    PFH_DB.cooldownDisplayMode = D.cooldownDisplayMode or 0
   end
-
-  -- Seed Settings var once
-  if PFH_DB.PFH_cooldownDisplayMode == nil then
-    PFH_DB.PFH_cooldownDisplayMode = PFH_DB.cooldownDisplayMode
-  end
-
-  -- Mode is source of truth
-  do
-    local m = tonumber(PFH_DB.cooldownDisplayMode) or 0
-    if m < 0 then m = 0 elseif m > 3 then m = 3 end
-    PFH_DB.cooldownDisplayMode = m
-
-    PFH_DB.controlEssentialCooldowns = (m >= 1)
-    PFH_DB.controlUtilityCooldowns   = (m >= 2)
-    PFH_DB.controlTrackedBuffs       = (m >= 3)
-  end
-
-  if PFH_DB.alwaysShowInInstance == nil then PFH_DB.alwaysShowInInstance = DEFAULTS.alwaysShowInInstance end
-
-  if PFH_DB.hiddenAlpha == nil then PFH_DB.hiddenAlpha = DEFAULTS.hiddenAlpha end
-  PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
+  PFH.SetCooldownMode(PFH_DB.cooldownDisplayMode)
 end
 
 -- =========================================================
 -- Helpers
 -- =========================================================
+
+function PFH.SetCooldownMode(mode)
+  local m = tonumber(mode) or 0
+  if m < 0 then m = 0 elseif m > 3 then m = 3 end
+
+  PFH_DB.cooldownDisplayMode = m
+
+  -- keep the Settings mirror in sync too
+  PFH_DB.PFH_cooldownDisplayMode = m
+
+  -- derived flags (still used everywhere else)
+  PFH_DB.controlEssentialCooldowns = (m >= 1)
+  PFH_DB.controlUtilityCooldowns   = (m >= 2)
+  PFH_DB.controlTrackedBuffs       = (m >= 3)
+end
 
 local function MarkHurt()
   state.hurtUntil = GetTime() + HURT_GRACE_SECONDS
@@ -196,7 +202,7 @@ local function HasEnemyTarget()
 end
 
 local function ShouldShowPlayerFrame()
-  if PFH_DB.enabled == false then
+  if not PFH_DB.enabled then
     return true -- addon disabled => do not hide anything
   end
 
@@ -217,7 +223,7 @@ local function ShouldShowPlayerFrame()
 end
 
 local function ShouldShowWidgets()
-  if PFH_DB.enabled == false then
+  if not PFH_DB.enabled then
     return true -- addon disabled => do not hide widgets
   end
 
@@ -311,7 +317,7 @@ local function GetObjectiveFrame()
 end
 
 local function ShouldShowObjectiveTracker()
-  if PFH_DB.enabled == false then
+  if not PFH_DB.enabled then
     return true
   end
 

@@ -201,20 +201,6 @@ function PFH.CreateSettingsPanel()
   end
 
   local function AddCooldownDropdown()
-    local function DerivePreset()
-      local e = PFH_DB.controlEssentialCooldowns and true or false
-      local u = PFH_DB.controlUtilityCooldowns and true or false
-      local b = PFH_DB.controlTrackedBuffs and true or false
-
-      if not e and not u and not b then return 0 end
-      if e and not u and not b then return 1 end
-      if e and u and not b then return 2 end
-      if e and u and b then return 3 end
-
-      -- Mixed/odd combos -> best effort
-      return 3
-    end
-
     local key = "cooldownDisplayMode"
     local varName = VarNameFor(key)
 
@@ -267,12 +253,7 @@ function PFH.CreateSettingsPanel()
         if value < 0 then value = 0 end
         if value > 3 then value = 3 end
 
-        PFH_DB[varName] = value
-        PFH_DB[key] = value
-
-        PFH_DB.controlEssentialCooldowns = (value >= 1)
-        PFH_DB.controlUtilityCooldowns   = (value >= 2)
-        PFH_DB.controlTrackedBuffs       = (value >= 3)
+        PFH.SetCooldownMode(value)
 
         PFH.ResolveWidgetFramesOnce()
         PFH.Apply()
