@@ -39,12 +39,50 @@ end
 
 local function OnRegenDisabled()
   state.inCombat = true
+  state.justLeftCombat = false
+  if PFH.CancelHold then
+    PFH.CancelHold("player")
+    PFH.CancelHold("widgets")
+  end
   PFH.Apply()
 end
 
 local function OnRegenEnabled()
+  -- Leaving combat: if elements were visible in combat and a combat
+  -- hold is configured, keep them visible for the configured duration.
+
+  local holdSeconds = tonumber(PFH_DB and PFH_DB.combatHoldSeconds) or 0
+
+  -- Ensure combat-hold flags are cleared while we sample baselines.
+  state.combatHoldPlayer = false
+  state.combatHoldWidgets = false
+
+  -- Treat as in-combat for the "before" snapshot.
+  state.inCombat = true
+  local prevShowPlayer = PFH.ShouldShowPlayerFrame()
+  local prevShowWidgets = PFH.ShouldShowWidgets()
+
+  -- Now mark as out of combat and clear any existing holds.
   state.inCombat = false
+  state.justLeftCombat = true
+
+  if PFH.CancelHold then
+    PFH.CancelHold("player")
+    PFH.CancelHold("widgets")
+  end
+
+  if PFH.ScheduleHold and holdSeconds > 0 then
+    if prevShowPlayer then
+      PFH.ScheduleHold("player", holdSeconds)
+    end
+    if prevShowWidgets then
+      PFH.ScheduleHold("widgets", holdSeconds)
+    end
+  end
+
   PFH.Apply()
+
+  state.justLeftCombat = false
 end
 
 local function OnTargetOrZoneChanged()

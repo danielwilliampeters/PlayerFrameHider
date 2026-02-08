@@ -122,6 +122,13 @@ function PFH.CreateSettingsPanel()
         state.objectiveHoverOverride = false
       end
 
+      if key == "combatHoldSeconds" then
+        if PFH.CancelHold then
+          PFH.CancelHold("player")
+          PFH.CancelHold("widgets")
+        end
+      end
+
       PFH.ResolveWidgetFramesOnce()
       PFH.Apply()
 
@@ -222,7 +229,7 @@ function PFH.CreateSettingsPanel()
       varName,
       PFH_DB,
       (Settings.VarType and Settings.VarType.Number) or "number",
-      "Cooldown Manager visibility",
+      "Hide Cooldown Manager",
       defaultValue
     )
     if not (ok and setting) then
@@ -263,6 +270,29 @@ function PFH.CreateSettingsPanel()
     end
   end
 
+  local function AddCombatHoldDropdown()
+    local key = "combatHoldSeconds"
+    local defaultValue = DEFAULTS[key] or 0
+
+    local setting, varName = RegisterSetting(key, "Post-Combat Hide Delay", defaultValue)
+    OnChangedFor(key, varName, setting)
+
+    local function GetHoldOptions()
+      local container = Settings.CreateControlTextContainer()
+      container:Add(0, "Off")
+      container:Add(1, "Short")
+      container:Add(3, "Medium")
+      container:Add(5, "Long")
+      return container:GetData()
+    end
+
+    local tooltip = "Delays hiding after combat ends.\n\nOnly applies to elements shown by \"Show in Combat\"."
+
+    if Settings.CreateDropdown and Settings.CreateControlTextContainer then
+      Settings.CreateDropdown(category, setting, GetHoldOptions, tooltip)
+    end
+  end
+
   AddCheckbox(
     "enabled",
     "Enable Player Frame Hider",
@@ -281,6 +311,8 @@ function PFH.CreateSettingsPanel()
     "Always show the Player Frame and cooldown displays while you are in combat."
   )
 
+  AddCombatHoldDropdown()
+
   AddCheckbox(
     "showIfTarget",
     "Show with target",
@@ -290,7 +322,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "alwaysShowInInstance",
     "Always show in instances",
-    "Forces all supported UI elements to stay visible in instances (player UI, cooldowns/buffs, and the Objective Tracker)."
+    "Forces all supported UI elements to stay visible in instances."
   )
 
   AddHeader("Player Frame")
@@ -322,14 +354,14 @@ function PFH.CreateSettingsPanel()
 
   AddCheckbox(
     "hideObjectiveTracker",
-    "Hide objective tracker",
+    "Hide Objective Tracker",
     "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nTip: Enable \"Hover to reveal\" to temporarily show it on mouseover."
   )
 
   AddCheckbox(
     "forceShowTrackerWhenSuperTracked",
-    "Show tracker for active waypoint quest",
-    "If the Objective Tracker is hidden, it will be shown whenever you set a quest as your active waypoint."
+    "Show for Active Waypoint",
+    "Shows the Objective Tracker when a quest is set as your active waypoint."
   )
 
   return category

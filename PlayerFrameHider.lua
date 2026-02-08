@@ -24,6 +24,7 @@ PFH.DEFAULTS = {
   showObjectiveUpdates = true,
   forceShowTrackerWhenSuperTracked = false,
   showInCombat = true,
+  combatHoldSeconds = 0,
   showIfTarget = true,
   showWhenHealthBelow100 = true,
   hoverRevealOutOfCombat = true,
@@ -87,9 +88,16 @@ PFH.state = PFH.state or {
   EssentialCDFrame = nil,
   UtilityCDFrame = nil,
   TrackedBuffsFrame = nil,
+ 
+  -- combat hold
+  combatHoldPlayer = false,
+  combatHoldWidgets = false,
+  justLeftCombat = false,
 }
 
 local state = PFH.state
+
+PFH.timers = PFH.timers or {}
 
 -- =========================================================
 -- DB defaults / migration
@@ -130,6 +138,7 @@ function PFH.ApplyDefaults()
   ApplyNumberDefault("objectiveHoverHideDelay", D.objectiveHoverHideDelay, 0)
   ApplyNumberDefault("hiddenAlpha", D.hiddenAlpha, 0)
   PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
+  ApplyNumberDefault("combatHoldSeconds", D.combatHoldSeconds or 0, 0)
 
   -- migrate old hideOutOfCombat -> hidePlayerFrame
   if PFH_DB.hidePlayerFrame == nil then
@@ -221,6 +230,11 @@ local function ShouldShowPlayerFrame()
     return true
   end
 
+  -- During a combat-hold window, keep the frame visible
+  if state.combatHoldPlayer then
+    return true
+  end
+
   return false
 end
 
@@ -230,6 +244,11 @@ local function ShouldShowWidgets()
   end
 
   if IsAlwaysShowInstance() then return true end
+
+  if state.combatHoldWidgets then
+    return true
+  end
+
   return IsInCombat() or HasEnemyTarget()
 end
 
@@ -602,6 +621,61 @@ function Apply()
 end
 
 -- =========================================================
+-- Combat hold helpers
+-- =========================================================
+
+local timers = PFH.timers
+
+local function CancelHold(which)
+  if not timers then return end
+
+  local t = timers[which]
+  if t then
+    t:Cancel()
+    timers[which] = nil
+  end
+
+  if which == "player" then
+    state.combatHoldPlayer = false
+  elseif which == "widgets" then
+    state.combatHoldWidgets = false
+  end
+end
+
+local function ScheduleHold(which, seconds)
+  local duration = tonumber(seconds) or 0
+  if duration <= 0 then
+    CancelHold(which)
+    return
+  end
+
+  CancelHold(which)
+
+  if which == "player" then
+    state.combatHoldPlayer = true
+  elseif which == "widgets" then
+    state.combatHoldWidgets = true
+  end
+
+  if not timers then
+    timers = {}
+    PFH.timers = timers
+  end
+
+  timers[which] = C_Timer.NewTimer(duration, function()
+    timers[which] = nil
+
+    if which == "player" then
+      state.combatHoldPlayer = false
+    elseif which == "widgets" then
+      state.combatHoldWidgets = false
+    end
+
+    Apply()
+  end)
+end
+
+-- =========================================================
 -- Hurt ticker
 -- =========================================================
 
@@ -707,3 +781,6 @@ PFH.ShouldShowObjectiveTracker = ShouldShowObjectiveTracker
 PFH.InitObjectiveFrame = InitObjectiveFrame
 PFH.OnObjectiveUpdated = OnObjectiveUpdated
 PFH.InitWorldMapHooks = InitWorldMapHooks
+
+PFH.CancelHold = CancelHold
+PFH.ScheduleHold = ScheduleHold
