@@ -122,6 +122,13 @@ function PFH.CreateSettingsPanel()
         state.objectiveHoverOverride = false
       end
 
+      if key == "combatHoldSeconds" then
+        if PFH.CancelHold then
+          PFH.CancelHold("player")
+          PFH.CancelHold("widgets")
+        end
+      end
+
       PFH.ResolveWidgetFramesOnce()
       PFH.Apply()
 
@@ -263,6 +270,29 @@ function PFH.CreateSettingsPanel()
     end
   end
 
+  local function AddCombatHoldDropdown()
+    local key = "combatHoldSeconds"
+    local defaultValue = DEFAULTS[key] or 0
+
+    local setting, varName = RegisterSetting(key, "Hide Delay After Combat", defaultValue)
+    OnChangedFor(key, varName, setting)
+
+    local function GetHoldOptions()
+      local container = Settings.CreateControlTextContainer()
+      container:Add(0, "Off")
+      container:Add(1, "Short")
+      container:Add(3, "Medium")
+      container:Add(5, "Long")
+      return container:GetData()
+    end
+
+    local tooltip = "After combat ends, keep visible for the selected duration before hiding."
+
+    if Settings.CreateDropdown and Settings.CreateControlTextContainer then
+      Settings.CreateDropdown(category, setting, GetHoldOptions, tooltip)
+    end
+  end
+
   AddCheckbox(
     "enabled",
     "Enable Player Frame Hider",
@@ -280,6 +310,8 @@ function PFH.CreateSettingsPanel()
     "Show in combat",
     "Always show the Player Frame and cooldown displays while you are in combat."
   )
+
+  AddCombatHoldDropdown()
 
   AddCheckbox(
     "showIfTarget",
