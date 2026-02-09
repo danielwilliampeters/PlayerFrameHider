@@ -207,6 +207,70 @@ function PFH.CreateSettingsPanel()
     end
   end
 
+  local function AddTargetModeDropdown()
+    local key = "showTargetMode"
+    local varName = VarNameFor(key)
+
+    -- Ensure base mode exists
+    if PFH_DB[key] == nil then
+      PFH_DB[key] = DEFAULTS.showTargetMode or 0
+    end
+
+    -- Always seed the Settings variable from the base mode
+    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
+    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
+    if PFH_DB[varName] > 3 then PFH_DB[varName] = 3 end
+
+    local defaultValue = DEFAULTS.showTargetMode or 0
+
+    local ok, setting = pcall(Settings.RegisterAddOnSetting,
+      category,
+      varName,
+      varName,
+      PFH_DB,
+      (Settings.VarType and Settings.VarType.Number) or "number",
+      "Show With Target",
+      defaultValue
+    )
+    if not (ok and setting) then
+      error(("PlayerFrameHider: RegisterAddOnSetting failed for %s (%s): %s"):format(key, tostring(varName), tostring(setting)))
+    end
+
+    local function GetTargetModeOptions()
+      local container = Settings.CreateControlTextContainer()
+      container:Add(0, "Off")
+      container:Add(1, "Target")
+      container:Add(2, "Soft Target")
+      container:Add(3, "Target + Soft Target")
+      return container:GetData()
+    end
+
+    local tooltip = "Shows the Player Frame and Cooldown Manager when a target is available.\n\nSoft Target requires Action Targeting enabled in Game Settings."
+
+    if Settings.CreateDropdown and Settings.CreateControlTextContainer then
+      Settings.CreateDropdown(category, setting, GetTargetModeOptions, tooltip)
+    end
+
+    if Settings.SetOnValueChangedCallback then
+      Settings.SetOnValueChangedCallback(varName, function()
+        if inCallback then return end
+        inCallback = true
+
+        local value = tonumber(setting:GetValue()) or 0
+        if value < 0 then value = 0 end
+        if value > 3 then value = 3 end
+
+        PFH_DB[varName] = value
+        PFH_DB[key] = value
+
+        PFH.ResolveWidgetFramesOnce()
+        PFH.Apply()
+
+        inCallback = false
+      end)
+    end
+  end
+
   local function AddCooldownDropdown()
     local key = "cooldownDisplayMode"
     local varName = VarNameFor(key)
@@ -319,17 +383,7 @@ function PFH.CreateSettingsPanel()
 
   AddCombatHoldDropdown()
 
-  AddCheckbox(
-    "showIfTarget",
-    "Show with Target",
-    "Show the Player Frame and Cooldown Manager when you have a target selected."
-  )
-
-  AddCheckbox(
-    "showIfSoftTarget",
-    "Show with Soft Target",
-    "Show the Player Frame and Cooldown Manager when an Action Target (soft target) is available.\n\nRequires Action Targeting enabled in Game Settings."
-  )
+  AddTargetModeDropdown()
 
   AddCheckbox(
     "alwaysShowInInstance",
