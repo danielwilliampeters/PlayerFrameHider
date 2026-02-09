@@ -229,7 +229,7 @@ function PFH.CreateSettingsPanel()
       varName,
       PFH_DB,
       (Settings.VarType and Settings.VarType.Number) or "number",
-      "Hide Cooldown Manager",
+      "Cooldown Manager",
       defaultValue
     )
     if not (ok and setting) then
@@ -239,13 +239,13 @@ function PFH.CreateSettingsPanel()
     local function GetCooldownOptions()
       local container = Settings.CreateControlTextContainer()
       container:Add(0, "Off")
-      container:Add(1, "Essential only")
+      container:Add(1, "Essential")
       container:Add(2, "Essential + Utility")
-      container:Add(3, "All (incl. tracked buffs)")
+      container:Add(3, "All")
       return container:GetData()
     end
 
-    local tooltip = "Choose which parts of the Blizzard Cooldown Manager are shown or hidden automatically.\n\nMay require a UI reload."
+    local tooltip = "Choose which parts of the Blizzard Cooldown Manager are shown or hidden automatically.\n\nVisibility rules control when it is shown.\n\nMay require a UI reload."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetCooldownOptions, tooltip)
@@ -300,53 +300,55 @@ function PFH.CreateSettingsPanel()
   )
 
   AddCheckbox(
+    "hidePlayerFrame",
+    "Hide Player Frame",
+    "Hides the Blizzard Player Frame by default.\n\nVisibility rules control when it is shown."
+  )
+
+  AddCheckbox(
     "hoverRevealOutOfCombat",
-    "Hover to reveal",
-    "When hidden, hovering over supported UI areas temporarily reveals them."
+    "Hover to Reveal",
+    "When hidden, hovering over UI areas temporarily reveals them."
   )
 
   AddCheckbox(
     "showInCombat",
-    "Show in combat",
-    "Always show the Player Frame and cooldown displays while you are in combat."
+    "Show in Combat",
+    "Always show the Player Frame and Cooldown Manager while you are in combat."
   )
 
   AddCombatHoldDropdown()
 
   AddCheckbox(
     "showIfTarget",
-    "Show with target",
-    "Show the Player Frame and cooldown displays when you have a target selected."
+    "Show with Target",
+    "Show the Player Frame and Cooldown Manager when you have a target selected."
+  )
+
+  AddCheckbox(
+    "showIfSoftTarget",
+    "Show with Soft Target",
+    "Show the Player Frame and Cooldown Manager when an Action Target (soft target) is available.\n\nRequires Action Targeting enabled in Game Settings."
   )
 
   AddCheckbox(
     "alwaysShowInInstance",
-    "Always show in instances",
-    "Forces all supported UI elements to stay visible in instances."
-  )
-
-  AddHeader("Player Frame")
-
-  AddCheckbox(
-    "hidePlayerFrame",
-    "Hide player frame",
-    "Hide the Blizzard Player Frame by default. The options below control when it becomes visible."
-  )
-
-  AddSlider(
-    "hiddenAlpha",
-    "Hidden transparency",
-    "Opacity used when the player frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-    0, 1, 0.05, DEFAULTS.hiddenAlpha
+    "Always Show in Instances",
+    "Forces the Player Frame, Cooldown Manager, and Objective Tracker to stay visible in instances."
   )
 
   AddCheckbox(
     "showWhenHealthBelow100",
-    "Show on health change",
-    "Temporarily show the Player Frame when your health changes.\n\nThis rule does not affect cooldowns."
+    "Show Player Frame on Health Change",
+    "Temporarily show the Player Frame when your health changes."
   )
 
-  AddHeader("Cooldown Manager")
+  AddSlider(
+    "hiddenAlpha",
+    "Player Frame Hidden Opacity",
+    "Opacity used when the Player Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+    0, 1, 0.05, DEFAULTS.hiddenAlpha
+  )
 
   AddCooldownDropdown()
 
@@ -355,7 +357,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "hideObjectiveTracker",
     "Hide Objective Tracker",
-    "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nTip: Enable \"Hover to reveal\" to temporarily show it on mouseover."
+    "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nTip: Enable \"Hover to Reveal\" to temporarily show it on mouseover."
   )
 
   AddCheckbox(

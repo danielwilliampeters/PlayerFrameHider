@@ -24,8 +24,9 @@ PFH.DEFAULTS = {
   showObjectiveUpdates = true,
   forceShowTrackerWhenSuperTracked = false,
   showInCombat = true,
-  combatHoldSeconds = 0,
+  combatHoldSeconds = 3,
   showIfTarget = true,
+  showIfSoftTarget = false,
   showWhenHealthBelow100 = true,
   hoverRevealOutOfCombat = true,
   controlEssentialCooldowns = false,
@@ -128,6 +129,7 @@ function PFH.ApplyDefaults()
   ApplyDefault("enabled", D.enabled)
   ApplyDefault("showInCombat", D.showInCombat)
   ApplyDefault("showIfTarget", D.showIfTarget)
+  ApplyDefault("showIfSoftTarget", D.showIfSoftTarget)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
   ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
@@ -212,6 +214,22 @@ local function HasEnemyTarget()
   return UnitExists("target") and UnitCanAttack("player", "target")
 end
 
+local function HasTargetLike()
+  if not PFH_DB.showIfTarget then
+    return false
+  end
+
+  if UnitExists("target") then
+    return true
+  end
+
+  if PFH_DB.showIfSoftTarget and UnitExists("softenemy") then
+    return true
+  end
+
+  return false
+end
+
 local function ShouldShowPlayerFrame()
   if not PFH_DB.enabled then
     return true -- addon disabled => do not hide anything
@@ -223,7 +241,7 @@ local function ShouldShowPlayerFrame()
   if not PFH_DB.hidePlayerFrame then return true end
 
   if PFH_DB.showInCombat and IsInCombat() then return true end
-  if PFH_DB.showIfTarget and UnitExists("target") then return true end
+  if HasTargetLike() then return true end
   if PFH_DB.showWhenHealthBelow100 and GetTime() < state.hurtUntil then return true end
 
   if PFH_DB.hoverRevealOutOfCombat and state.hoverOverride and not IsInCombat() then
@@ -249,7 +267,7 @@ local function ShouldShowWidgets()
     return true
   end
 
-  return IsInCombat() or HasEnemyTarget()
+  return IsInCombat() or HasEnemyTarget() or HasTargetLike()
 end
 
 local function GetObjectiveHoverHideDelay()
@@ -762,6 +780,7 @@ PFH.StopHurtTicker = StopHurtTicker
 PFH.IsAlwaysShowInstance = IsAlwaysShowInstance
 PFH.IsInCombat = IsInCombat
 PFH.HasEnemyTarget = HasEnemyTarget
+PFH.HasTargetLike = HasTargetLike
 PFH.ShouldShowPlayerFrame = ShouldShowPlayerFrame
 PFH.ShouldShowWidgets = ShouldShowWidgets
 
