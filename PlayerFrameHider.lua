@@ -25,6 +25,7 @@ PFH.DEFAULTS = {
   forceShowTrackerWhenSuperTracked = false,
   showInCombat = true,
   combatHoldSeconds = 3,
+  showTargetMode = 1,
   showIfTarget = true,
   showIfSoftTarget = false,
   showWhenHealthBelow100 = true,
@@ -128,6 +129,7 @@ function PFH.ApplyDefaults()
   -- basic defaults
   ApplyDefault("enabled", D.enabled)
   ApplyDefault("showInCombat", D.showInCombat)
+  ApplyDefault("showTargetMode", D.showTargetMode)
   ApplyDefault("showIfTarget", D.showIfTarget)
   ApplyDefault("showIfSoftTarget", D.showIfSoftTarget)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
@@ -156,6 +158,12 @@ function PFH.ApplyDefaults()
     PFH_DB.cooldownDisplayMode = D.cooldownDisplayMode or 0
   end
   PFH.SetCooldownMode(PFH_DB.cooldownDisplayMode)
+
+  -- migrate legacy showIfTarget/showIfSoftTarget into showTargetMode once
+  if PFH_DB.showTargetMode == nil then
+    local legacy = (PFH_DB.showIfTarget == true)
+    PFH_DB.showTargetMode = legacy and 1 or 0
+  end
 end
 
 -- =========================================================
@@ -215,15 +223,13 @@ local function HasEnemyTarget()
 end
 
 local function HasTargetLike()
-  if not PFH_DB.showIfTarget then
-    return false
-  end
+  local mode = tonumber(PFH_DB.showTargetMode) or 0
 
-  if UnitExists("target") then
+  if (mode == 1 or mode == 3) and UnitExists("target") then
     return true
   end
 
-  if PFH_DB.showIfSoftTarget and UnitExists("softenemy") then
+  if (mode == 2 or mode == 3) and UnitExists("softenemy") then
     return true
   end
 
@@ -267,7 +273,9 @@ local function ShouldShowWidgets()
     return true
   end
 
-  return IsInCombat() or HasEnemyTarget() or HasTargetLike()
+  -- Mirror player frame rules for target/soft-target visibility so that
+  -- the "Show with Target" setting is respected for widgets as well.
+  return IsInCombat() or HasTargetLike()
 end
 
 local function GetObjectiveHoverHideDelay()
