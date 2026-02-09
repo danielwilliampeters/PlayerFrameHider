@@ -126,6 +126,11 @@ end
 function PFH.ApplyDefaults()
   local D = PFH.DEFAULTS
 
+  -- migrate legacy showIfTarget into showTargetMode before any defaults
+  if PFH_DB.showTargetMode == nil then
+    PFH_DB.showTargetMode = (PFH_DB.showIfTarget == true) and 1 or 0
+  end
+
   -- basic defaults
   ApplyDefault("enabled", D.enabled)
   ApplyDefault("showInCombat", D.showInCombat)
@@ -158,12 +163,6 @@ function PFH.ApplyDefaults()
     PFH_DB.cooldownDisplayMode = D.cooldownDisplayMode or 0
   end
   PFH.SetCooldownMode(PFH_DB.cooldownDisplayMode)
-
-  -- migrate legacy showIfTarget/showIfSoftTarget into showTargetMode once
-  if PFH_DB.showTargetMode == nil then
-    local legacy = (PFH_DB.showIfTarget == true)
-    PFH_DB.showTargetMode = legacy and 1 or 0
-  end
 end
 
 -- =========================================================

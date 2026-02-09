@@ -350,7 +350,7 @@ function PFH.CreateSettingsPanel()
       return container:GetData()
     end
 
-    local tooltip = "Delays hiding after combat ends.\n\nOnly applies to elements shown by \"Show in Combat\"."
+    local tooltip = "Keeps the Player Frame and Cooldown Manager visible briefly after combat ends.\n\nThis only applies when \"Show in Combat\" is enabled."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetHoldOptions, tooltip)
@@ -372,7 +372,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "hoverRevealOutOfCombat",
     "Hover to Reveal",
-    "When hidden, hovering over UI areas temporarily reveals them."
+    "When the Player Frame or Objective Tracker is hidden, hovering over it temporarily reveals it."
   )
 
   AddCheckbox(
@@ -391,6 +391,8 @@ function PFH.CreateSettingsPanel()
     "Forces the Player Frame, Cooldown Manager, and Objective Tracker to stay visible in instances."
   )
 
+  AddCooldownDropdown()
+
   AddCheckbox(
     "showWhenHealthBelow100",
     "Show Player Frame on Health Change",
@@ -403,8 +405,6 @@ function PFH.CreateSettingsPanel()
     "Opacity used when the Player Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
     0, 1, 0.05, DEFAULTS.hiddenAlpha
   )
-
-  AddCooldownDropdown()
 
   AddHeader("Objective Tracker")
 
