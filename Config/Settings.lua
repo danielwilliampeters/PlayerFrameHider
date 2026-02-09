@@ -240,7 +240,6 @@ function PFH.CreateSettingsPanel()
       local container = Settings.CreateControlTextContainer()
       container:Add(0, "Off")
       container:Add(1, "Target")
-      container:Add(2, "Soft Target")
       container:Add(3, "Target + Soft Target")
       return container:GetData()
     end
