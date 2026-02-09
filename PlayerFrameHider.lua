@@ -26,8 +26,6 @@ PFH.DEFAULTS = {
   showInCombat = true,
   combatHoldSeconds = 3,
   showTargetMode = 1,
-  showIfTarget = true,
-  showIfSoftTarget = false,
   showWhenHealthBelow100 = true,
   hoverRevealOutOfCombat = true,
   controlEssentialCooldowns = false,
@@ -135,8 +133,6 @@ function PFH.ApplyDefaults()
   ApplyDefault("enabled", D.enabled)
   ApplyDefault("showInCombat", D.showInCombat)
   ApplyDefault("showTargetMode", D.showTargetMode)
-  ApplyDefault("showIfTarget", D.showIfTarget)
-  ApplyDefault("showIfSoftTarget", D.showIfSoftTarget)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
   ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
@@ -753,7 +749,7 @@ local function HookOnce()
   if PlayerFrame.SetHitRectInsets then
     local l, r, t, b = PlayerFrame:GetHitRectInsets()
     l, r, t, b = l or 0, r or 0, t or 0, b or 0
-    PlayerFrame:SetHitRectInsets(l - 10, r - 10, t - 10, b - 10)
+    PlayerFrame:SetHitRectInsets(l - 10, r + 10, t - 10, b + 10)
   end
 
   PlayerFrame:HookScript("OnEnter", OnPlayerFrameEnter)
