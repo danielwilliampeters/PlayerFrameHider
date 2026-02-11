@@ -296,8 +296,17 @@ end
 
 local function FindFrameByNameHint(hint)
   for k, v in pairs(_G) do
-    if type(k) == "string" and type(v) == "table" and v.GetObjectType and v.IsShown then
-      if k:find(hint, 1, true) then
+    if type(k) == "string" and type(v) == "table" then
+      local ok, isMatch = pcall(function()
+        -- Some global tables are forbidden/restricted and will error
+        -- when indexed; wrap access in pcall so we can safely skip them.
+        if v.GetObjectType and v.IsShown and k:find(hint, 1, true) then
+          return true
+        end
+        return false
+      end)
+
+      if ok and isMatch then
         return v
       end
     end
