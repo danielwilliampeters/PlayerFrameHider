@@ -21,6 +21,9 @@ local function OnLogin()
   end
   PFH.InitPlayerFrame()
   PFH.InitObjectiveFrame()
+  if PFH.InitBuffFrame then
+    PFH.InitBuffFrame()
+  end
   if PFH.InitWorldMapHooks then
     PFH.InitWorldMapHooks()
   end
@@ -119,6 +122,7 @@ eventFrame:RegisterEvent("UNIT_HEALTH")
 eventFrame:RegisterEvent("UNIT_MAXHEALTH")
 eventFrame:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED")
 eventFrame:RegisterEvent("UNIT_HEAL_PREDICTION")
+eventFrame:RegisterEvent("UNIT_AURA")
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 eventFrame:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
 eventFrame:RegisterEvent("SCENARIO_UPDATE")
@@ -164,5 +168,12 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
     or event == "SUPER_TRACKING_CHANGED"
   then
     OnObjectiveTrackerChanged()
+    return
+  end
+
+  if event == "UNIT_AURA" then
+    if unit == "player" and PFH.OnBuffsUpdated then
+      PFH.OnBuffsUpdated()
+    end
   end
 end)

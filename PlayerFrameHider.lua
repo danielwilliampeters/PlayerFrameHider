@@ -19,8 +19,12 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
+  hideBuffFrame = false,
   hideObjectiveTracker = false,
   objectiveHoverHideDelay = 3.0,
+  buffHoverHideDelay = 5.0,
+  playerHoverHideDelay = 3.0,
+  hurtGraceSeconds = 3.0,
   showObjectiveUpdates = true,
   forceShowTrackerWhenSuperTracked = false,
   showInCombat = true,
@@ -37,13 +41,12 @@ PFH.DEFAULTS = {
   hiddenAlpha = 0, -- player frame hidden opacity
   cooldownHiddenAlpha = 0,
   objectiveHiddenAlpha = 0,
+  buffHiddenAlpha = 0,
 }
 
 -- =========================================================
 -- Constants / State
 -- =========================================================
-
-local HURT_GRACE_SECONDS = 3
 
 local function ClampHiddenAlpha(value)
   if type(value) ~= "number" then
@@ -86,6 +89,14 @@ PFH.state = PFH.state or {
 
   -- world map hooks
   worldMapHooked = false,
+
+  -- buff frame
+  BuffFrame = nil,
+  buffHooked = false,
+  buffHoverOverride = false,
+  buffHoverHideTimer = nil,
+  buffChangeOverride = false,
+  buffChangeHideTimer = nil,
 
   -- widget frames
   EssentialCDFrame = nil,
@@ -144,6 +155,7 @@ function PFH.ApplyDefaults()
   ApplyDefault("showTargetMode", D.showTargetMode)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
+  ApplyDefault("hideBuffFrame", D.hideBuffFrame)
   ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
   ApplyDefault("showObjectiveUpdates", D.showObjectiveUpdates)
   ApplyDefault("forceShowTrackerWhenSuperTracked", D.forceShowTrackerWhenSuperTracked)
@@ -151,6 +163,9 @@ function PFH.ApplyDefaults()
   ApplyDefault("alwaysShowInInstance", D.alwaysShowInInstance)
 
   ApplyNumberDefault("objectiveHoverHideDelay", D.objectiveHoverHideDelay, 0)
+  ApplyNumberDefault("buffHoverHideDelay", D.buffHoverHideDelay, 0)
+  ApplyNumberDefault("playerHoverHideDelay", D.playerHoverHideDelay, 0)
+  ApplyNumberDefault("hurtGraceSeconds", D.hurtGraceSeconds or 0, 0)
   ApplyNumberDefault("hiddenAlpha", D.hiddenAlpha, 0)
   PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
 
@@ -161,6 +176,10 @@ function PFH.ApplyDefaults()
   local defaultObjectiveAlpha = PFH_DB.hiddenAlpha or D.hiddenAlpha or 0
   ApplyNumberDefault("objectiveHiddenAlpha", defaultObjectiveAlpha, 0)
   PFH_DB.objectiveHiddenAlpha = ClampHiddenAlpha(PFH_DB.objectiveHiddenAlpha)
+
+  local defaultBuffAlpha = PFH_DB.hiddenAlpha or D.hiddenAlpha or 0
+  ApplyNumberDefault("buffHiddenAlpha", defaultBuffAlpha, 0)
+  PFH_DB.buffHiddenAlpha = ClampHiddenAlpha(PFH_DB.buffHiddenAlpha)
 
   ApplyNumberDefault("combatHoldSeconds", D.combatHoldSeconds or 0, 0)
 
@@ -200,7 +219,9 @@ function PFH.SetCooldownMode(mode)
 end
 
 local function MarkHurt()
-  state.hurtUntil = GetTime() + HURT_GRACE_SECONDS
+  local seconds = tonumber(PFH_DB.hurtGraceSeconds) or PFH.DEFAULTS.hurtGraceSeconds or 0
+  if seconds < 0 then seconds = 0 end
+  state.hurtUntil = GetTime() + seconds
 end
 
 local function IsRelevantInstance()
@@ -413,6 +434,42 @@ local function GetObjectiveHoverHideDelay()
   return v
 end
 
+local function GetBuffHoverHideDelay()
+  local v = PFH_DB.buffHoverHideDelay
+  if type(v) ~= "number" then
+    v = PFH.DEFAULTS.buffHoverHideDelay or 5.0
+  end
+  if v < 0 then v = 0 end
+  return v
+end
+
+local function GetPlayerHoverHideDelay()
+  local v = PFH_DB.playerHoverHideDelay
+  if type(v) ~= "number" then
+    v = PFH.DEFAULTS.playerHoverHideDelay or 3.0
+  end
+  if v < 0 then v = 0 end
+  return v
+end
+
+-- =========================================================
+-- Buff frame helpers
+-- =========================================================
+
+local function GetBuffFrame()
+  if state.BuffFrame and state.BuffFrame.GetAlpha then
+    return state.BuffFrame
+  end
+
+  local frame = _G.BuffFrame or _G.BuffFrameContainer or _G.PlayerBuffFrame
+  if frame and frame.GetAlpha then
+    state.BuffFrame = frame
+    return frame
+  end
+
+  return nil
+end
+
 local function IsWorldMapOpen()
   local map = _G.WorldMapFrame
   if map and map.IsShown and map:IsShown() then
@@ -583,6 +640,30 @@ local function BaseShouldShowObjectiveTracker()
   return false
 end
 
+local function ShouldShowBuffFrame()
+  if not PFH_DB.enabled then
+    return true
+  end
+
+  if IsAlwaysShowInstance() then
+    return true
+  end
+
+  if not PFH_DB.hideBuffFrame then
+    return true
+  end
+
+  if state.buffHoverOverride then
+    return true
+  end
+
+  if state.buffChangeOverride then
+    return true
+  end
+
+  return false
+end
+
 local function ShouldShowObjectiveTracker()
   local show = BaseShouldShowObjectiveTracker()
 
@@ -710,6 +791,108 @@ local function InitObjectiveFrame()
 end
 
 -- =========================================================
+-- Buff frame init & update hooks
+-- =========================================================
+
+local function OnBuffFrameEnter()
+  if not PFH_DB.enabled then return end
+  if not PFH_DB.hideBuffFrame then return end
+  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if IsInCombat() then return end
+
+  if state.buffHoverHideTimer then
+    state.buffHoverHideTimer:Cancel()
+    state.buffHoverHideTimer = nil
+  end
+
+  state.buffHoverOverride = true
+  Apply()
+end
+
+local function OnBuffFrameLeave()
+  if not PFH_DB.hideBuffFrame then return end
+  if not PFH_DB.hoverRevealOutOfCombat then return end
+
+  if state.buffHoverHideTimer then
+    state.buffHoverHideTimer:Cancel()
+    state.buffHoverHideTimer = nil
+  end
+
+  local delay = GetBuffHoverHideDelay()
+
+  if delay <= 0 then
+    state.buffHoverOverride = false
+    Apply()
+    return
+  end
+
+  state.buffHoverHideTimer = C_Timer.NewTimer(delay, function()
+    state.buffHoverHideTimer = nil
+    if not PFH_DB.hoverRevealOutOfCombat then return end
+    if IsInCombat() then return end
+    state.buffHoverOverride = false
+    Apply()
+  end)
+end
+
+local function HookBuffFrameOnce()
+  if state.buffHooked then return end
+
+  local frame = GetBuffFrame()
+  if not frame or not frame.HookScript then return end
+
+  state.buffHooked = true
+  state.BuffFrame = frame
+
+  if frame.EnableMouse then
+    frame:EnableMouse(true)
+  end
+
+  frame:HookScript("OnEnter", OnBuffFrameEnter)
+  frame:HookScript("OnLeave", OnBuffFrameLeave)
+
+  Apply()
+end
+
+local function OnBuffsUpdated()
+  if not PFH_DB.enabled then return end
+  if not PFH_DB.hideBuffFrame then return end
+
+  if state.buffChangeHideTimer then
+    state.buffChangeHideTimer:Cancel()
+    state.buffChangeHideTimer = nil
+  end
+
+  state.buffChangeOverride = true
+  Apply()
+
+  local delay = GetBuffHoverHideDelay()
+  if delay <= 0 then return end
+
+  state.buffChangeHideTimer = C_Timer.NewTimer(delay, function()
+    state.buffChangeHideTimer = nil
+    if not PFH_DB.hideBuffFrame then return end
+    state.buffChangeOverride = false
+    Apply()
+  end)
+end
+
+local function InitBuffFrame()
+  local tries = 0
+  local ticker
+  ticker = C_Timer.NewTicker(0.2, function()
+    tries = tries + 1
+
+    if GetBuffFrame() then
+      HookBuffFrameOnce()
+      ticker:Cancel()
+    elseif tries >= 50 then
+      ticker:Cancel()
+    end
+  end)
+end
+
+-- =========================================================
 -- World map hooks (keep objectives visible with map)
 -- =========================================================
 
@@ -756,6 +939,19 @@ local function SetPlayerFrameVisible(wantVisible)
         PlayerFrame:EnableMouse(false)
       end
     end
+  end
+end
+
+local function SetBuffFrameVisible(wantVisible)
+  local frame = GetBuffFrame()
+  if not frame then return end
+
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.buffHiddenAlpha or PFH_DB.hiddenAlpha or 0)
+
+  if wantVisible then
+    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+  else
+    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
   end
 end
 
@@ -839,7 +1035,15 @@ local function OnPlayerFrameLeave()
     state.hoverHideTimer = nil
   end
 
-  state.hoverHideTimer = C_Timer.NewTimer(3, function()
+  local delay = GetPlayerHoverHideDelay()
+
+  if delay <= 0 then
+    state.hoverOverride = false
+    Apply()
+    return
+  end
+
+  state.hoverHideTimer = C_Timer.NewTimer(delay, function()
     state.hoverHideTimer = nil
     if not PFH_DB.hoverRevealOutOfCombat then return end
     if IsInCombat() then return end
@@ -868,6 +1072,7 @@ Apply = function()
 
   SetPlayerFrameVisible(ShouldShowPlayerFrame())
   SetObjectiveTrackerVisible(ShouldShowObjectiveTracker())
+  SetBuffFrameVisible(ShouldShowBuffFrame())
 
   ApplyWidget(state.EssentialCDFrame, PFH_DB.controlEssentialCooldowns)
   ApplyWidget(state.UtilityCDFrame, PFH_DB.controlUtilityCooldowns)
@@ -1051,6 +1256,7 @@ PFH.HasEnemyTarget = HasEnemyTarget
 PFH.HasTargetLike = HasTargetLike
 PFH.ShouldShowPlayerFrame = ShouldShowPlayerFrame
 PFH.ShouldShowWidgets = ShouldShowWidgets
+PFH.ShouldShowBuffFrame = ShouldShowBuffFrame
 
 PFH.ResolveWidgetFramesOnce = ResolveWidgetFramesOnce
 PFH.ResolveWidgetFramesWithRetries = ResolveWidgetFramesWithRetries
@@ -1058,6 +1264,7 @@ PFH.NeedWidgets = NeedWidgets
 PFH.HaveRequiredWidgets = HaveRequiredWidgets
 
 PFH.SetPlayerFrameVisible = SetPlayerFrameVisible
+PFH.SetBuffFrameVisible = SetBuffFrameVisible
 PFH.ApplyWidget = ApplyWidget
 PFH.Apply = Apply
 
@@ -1068,6 +1275,8 @@ PFH.ShouldShowObjectiveTracker = ShouldShowObjectiveTracker
 PFH.InitObjectiveFrame = InitObjectiveFrame
 PFH.OnObjectiveUpdated = OnObjectiveUpdated
 PFH.InitWorldMapHooks = InitWorldMapHooks
+PFH.InitBuffFrame = InitBuffFrame
+PFH.OnBuffsUpdated = OnBuffsUpdated
 
 PFH.CancelHold = CancelHold
 PFH.ScheduleHold = ScheduleHold

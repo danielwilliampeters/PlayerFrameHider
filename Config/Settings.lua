@@ -120,6 +120,11 @@ function PFH.CreateSettingsPanel()
           state.objectiveHoverHideTimer = nil
         end
         state.objectiveHoverOverride = false
+        if state.buffHoverHideTimer then
+          state.buffHoverHideTimer:Cancel()
+          state.buffHoverHideTimer = nil
+        end
+        state.buffHoverOverride = false
       end
 
       if key == "combatHoldSeconds" then
@@ -413,6 +418,21 @@ function PFH.CreateSettingsPanel()
     "Hidden Opacity",
     "Opacity used when the Player Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
     0, 1, 0.05, DEFAULTS.hiddenAlpha
+  )
+
+  AddHeader("Buff Frame")
+
+  AddCheckbox(
+    "hideBuffFrame",
+    "Hide Buff Frame",
+    "Hides the player buff frame by default. It briefly appears when your buffs change or when you hover over it."
+  )
+
+  AddSlider(
+    "buffHiddenAlpha",
+    "Hidden Opacity",
+    "Opacity used when the Buff Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+    0, 1, 0.05, DEFAULTS.buffHiddenAlpha or DEFAULTS.hiddenAlpha
   )
 
   AddHeader("Cooldown Manager")
