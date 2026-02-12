@@ -19,6 +19,11 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
+  hideAllActionBars = false,
+  hideActionBar1 = false,
+  hidePetBar = false,
+  hideStanceBar = false,
+  showActionBar1WhenSkyriding = false,
   hideBuffFrame = false,
   hideObjectiveTracker = false,
   objectiveHoverHideDelay = 3.0,
@@ -90,6 +95,16 @@ PFH.state = PFH.state or {
   -- world map hooks
   worldMapHooked = false,
 
+  -- action bars
+  actionBarsHooked = false,
+  actionBarFrames = nil, -- list of { frame = Frame, kind = "bar1"|"multi"|"pet"|"stance" }
+  actionBarHoverOverride = false,
+  actionBarHoverHideTimer = nil,
+
+  ActionBar1Frame = nil,
+  PetActionBarFrame = nil,
+  StanceBarFrame = nil,
+
   -- buff frame
   BuffFrame = nil,
   buffHooked = false,
@@ -155,6 +170,11 @@ function PFH.ApplyDefaults()
   ApplyDefault("showTargetMode", D.showTargetMode)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
+  ApplyDefault("hideAllActionBars", D.hideAllActionBars)
+  ApplyDefault("hideActionBar1", D.hideActionBar1)
+  ApplyDefault("hidePetBar", D.hidePetBar)
+  ApplyDefault("hideStanceBar", D.hideStanceBar)
+  ApplyDefault("showActionBar1WhenSkyriding", D.showActionBar1WhenSkyriding)
   ApplyDefault("hideBuffFrame", D.hideBuffFrame)
   ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
   ApplyDefault("showObjectiveUpdates", D.showObjectiveUpdates)
@@ -452,6 +472,36 @@ local function GetPlayerHoverHideDelay()
   return v
 end
 
+local function IsSkyRidingLike()
+  if not IsMounted then return false end
+  local okMounted, mounted = pcall(IsMounted)
+  if not okMounted or not mounted then
+    return false
+  end
+
+  -- Prefer the real "Skyriding/Dragonriding" signals when available
+  if C_PlayerInfo then
+    if C_PlayerInfo.IsPlayerInSkyriding then
+      local ok, v = pcall(C_PlayerInfo.IsPlayerInSkyriding)
+      if ok then return v and true or false end
+    end
+    if C_PlayerInfo.IsPlayerInDragonriding then
+      local ok, v = pcall(C_PlayerInfo.IsPlayerInDragonriding)
+      if ok then return v and true or false end
+    end
+  end
+
+  -- Fallback: only count if you're actually flying (prevents ground mounts in flyable areas)
+  if IsFlying then
+    local okFlying, flying = pcall(IsFlying)
+    if okFlying and flying then
+      return true
+    end
+  end
+
+  return false
+end
+
 -- =========================================================
 -- Buff frame helpers
 -- =========================================================
@@ -476,6 +526,116 @@ local function IsWorldMapOpen()
     return true
   end
   return false
+end
+
+-- =========================================================
+-- Action bar frame helpers
+-- =========================================================
+
+local function AddActionBarFrame(list, frame, kind)
+  if not frame or not frame.GetAlpha or not frame.SetAlpha then
+    return
+  end
+  list[#list + 1] = { frame = frame, kind = kind }
+end
+
+local function ResolveActionBarFrames()
+  if state.actionBarFrames then
+    return state.actionBarFrames
+  end
+
+  local frames = {}
+
+  -- Primary action bar (Bar 1)
+  -- Prefer the modern ActionBar1 container, fall back to older names.
+  local bar1 = _G.ActionBar1 or _G.MainMenuBar or _G.MainActionBar
+  if bar1 and bar1.GetAlpha then
+    state.ActionBar1Frame = bar1
+    AddActionBarFrame(frames, bar1, "bar1")
+  end
+
+  -- Common multi-bars (treated as a single "multi" kind)
+  local multiNames = {
+    "MultiBarBottomLeft",
+    "MultiBarBottomRight",
+    "MultiBarLeft",
+    "MultiBarRight",
+    "MultiBar5",
+    "MultiBar6",
+    "MultiBar7",
+  }
+  for _, name in ipairs(multiNames) do
+    local f = _G[name]
+    if f and f.GetAlpha then
+      AddActionBarFrame(frames, f, "multi")
+    end
+  end
+
+  -- Pet bar
+  local pet = _G.PetActionBarFrame or _G.PetActionBar
+  if pet and pet.GetAlpha then
+    state.PetActionBarFrame = pet
+    AddActionBarFrame(frames, pet, "pet")
+  end
+
+  -- Stance bar
+  local stance = _G.StanceBarFrame or _G.StanceBar
+  if stance and stance.GetAlpha then
+    state.StanceBarFrame = stance
+    AddActionBarFrame(frames, stance, "stance")
+  end
+
+  -- Individual buttons for broader coverage (helps both alpha-hide and hover).
+
+  -- Action Bar 1 buttons
+  for i = 1, 12 do
+    local btn = _G["ActionButton" .. i]
+    if btn and btn.GetAlpha and btn.SetAlpha then
+      AddActionBarFrame(frames, btn, "bar1")
+    end
+  end
+
+  -- Multi-bar buttons
+  local multiButtonPrefixes = {
+    "MultiBarBottomLeftButton",
+    "MultiBarBottomRightButton",
+    "MultiBarLeftButton",
+    "MultiBarRightButton",
+    "MultiBar5Button",
+    "MultiBar6Button",
+    "MultiBar7Button",
+  }
+  for _, prefix in ipairs(multiButtonPrefixes) do
+    for i = 1, 12 do
+      local btn = _G[prefix .. i]
+      if btn and btn.GetAlpha and btn.SetAlpha then
+        AddActionBarFrame(frames, btn, "multi")
+      end
+    end
+  end
+
+  -- Pet action buttons
+  for i = 1, 10 do
+    local btn = _G["PetActionButton" .. i]
+    if btn and btn.GetAlpha and btn.SetAlpha then
+      AddActionBarFrame(frames, btn, "pet")
+    end
+  end
+
+  -- Stance buttons
+  for i = 1, 10 do
+    local btn = _G["StanceButton" .. i]
+    if btn and btn.GetAlpha and btn.SetAlpha then
+      AddActionBarFrame(frames, btn, "stance")
+    end
+  end
+
+  if #frames == 0 then
+    frames = nil
+  end
+
+  state.actionBarFrames = frames
+  return frames
 end
 
 -- =========================================================
@@ -658,6 +818,94 @@ local function ShouldShowBuffFrame()
   end
 
   if state.buffChangeOverride then
+    return true
+  end
+
+  return false
+end
+
+local function AnyActionBarHideEnabled()
+  return PFH_DB.hideAllActionBars
+    or PFH_DB.hideActionBar1
+    or PFH_DB.hidePetBar
+    or PFH_DB.hideStanceBar
+end
+
+local function ShouldShowActionBar1()
+  if not PFH_DB.enabled then
+    return true
+  end
+  -- Base hide flag for Bar 1 (independent of global hideAllActionBars).
+  local hideThis = PFH_DB.hideActionBar1 and true or false
+
+  -- When skyriding and the option is enabled, temporarily treat Bar 1
+  -- as not hidden so it behaves like a normal, always-visible bar.
+  if hideThis and PFH_DB.showActionBar1WhenSkyriding and IsSkyRidingLike() then
+    hideThis = false
+  end
+
+  -- If we're not hiding this bar via settings, always show it.
+  if not hideThis then
+    return true
+  end
+
+  -- When Bar 1 is configured as hidden, only show it while the
+  -- action-bar hover override is active (mouse over bar/buttons).
+  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowPetBar()
+  if not PFH_DB.enabled then
+    return true
+  end
+
+  local hideThis = PFH_DB.hidePetBar and true or false
+
+  if not hideThis then
+    return true
+  end
+
+  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowStanceBar()
+  if not PFH_DB.enabled then
+    return true
+  end
+
+  local hideThis = PFH_DB.hideStanceBar and true or false
+
+  if not hideThis then
+    return true
+  end
+
+  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowMultiActionBars()
+  if not PFH_DB.enabled then
+    return true
+  end
+
+  local hideThis = PFH_DB.hideAllActionBars and true or false
+
+  if not hideThis then
+    return true
+  end
+
+  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
     return true
   end
 
@@ -955,6 +1203,22 @@ local function SetBuffFrameVisible(wantVisible)
   end
 end
 
+local function SetSimpleFrameVisible(frame, wantVisible)
+  if not frame or not frame.GetAlpha or not frame.SetAlpha then return end
+
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha or 0)
+
+  if wantVisible then
+    if frame:GetAlpha() ~= 1 then
+      frame:SetAlpha(1)
+    end
+  else
+    if frame:GetAlpha() ~= hiddenAlpha then
+      frame:SetAlpha(hiddenAlpha)
+    end
+  end
+end
+
 local function SetViewerMouseEnabled(viewer, enabled)
   if not viewer or type(viewer) ~= "table" then return end
 
@@ -1052,6 +1316,45 @@ local function OnPlayerFrameLeave()
   end)
 end
 
+local function OnActionBarEnter()
+  if not PFH_DB.enabled then return end
+  if not AnyActionBarHideEnabled() then return end
+  if not PFH_DB.hoverRevealOutOfCombat then return end
+
+  if state.actionBarHoverHideTimer then
+    state.actionBarHoverHideTimer:Cancel()
+    state.actionBarHoverHideTimer = nil
+  end
+
+  state.actionBarHoverOverride = true
+  Apply()
+end
+
+local function OnActionBarLeave()
+  if not AnyActionBarHideEnabled() then return end
+  if not PFH_DB.hoverRevealOutOfCombat then return end
+
+  if state.actionBarHoverHideTimer then
+    state.actionBarHoverHideTimer:Cancel()
+    state.actionBarHoverHideTimer = nil
+  end
+
+  local delay = GetPlayerHoverHideDelay()
+
+  if delay <= 0 then
+    state.actionBarHoverOverride = false
+    Apply()
+    return
+  end
+
+  state.actionBarHoverHideTimer = C_Timer.NewTimer(delay, function()
+    state.actionBarHoverHideTimer = nil
+    if not PFH_DB.hoverRevealOutOfCombat then return end
+    state.actionBarHoverOverride = false
+    Apply()
+  end)
+end
+
 -- =========================================================
 -- Widget visibility
 -- =========================================================
@@ -1061,6 +1364,35 @@ local function ApplyWidget(frame, enabled)
 
   local want = ShouldShowWidgets()
   SetWidgetVisible(frame, want)
+end
+
+local function ApplyActionBars()
+  local frames = ResolveActionBarFrames()
+  if not frames then
+    return
+  end
+
+  if not AnyActionBarHideEnabled() then
+    -- Ensure all known action bars are fully visible.
+    for _, info in ipairs(frames) do
+      SetSimpleFrameVisible(info.frame, true)
+    end
+    return
+  end
+
+  for _, info in ipairs(frames) do
+    local wantVisible = true
+    if info.kind == "bar1" then
+      wantVisible = ShouldShowActionBar1()
+    elseif info.kind == "pet" then
+      wantVisible = ShouldShowPetBar()
+    elseif info.kind == "stance" then
+      wantVisible = ShouldShowStanceBar()
+    else
+      wantVisible = ShouldShowMultiActionBars()
+    end
+    SetSimpleFrameVisible(info.frame, wantVisible)
+  end
 end
 
 -- =========================================================
@@ -1073,6 +1405,7 @@ Apply = function()
   SetPlayerFrameVisible(ShouldShowPlayerFrame())
   SetObjectiveTrackerVisible(ShouldShowObjectiveTracker())
   SetBuffFrameVisible(ShouldShowBuffFrame())
+  ApplyActionBars()
 
   ApplyWidget(state.EssentialCDFrame, PFH_DB.controlEssentialCooldowns)
   ApplyWidget(state.UtilityCDFrame, PFH_DB.controlUtilityCooldowns)
@@ -1222,6 +1555,33 @@ local function HookOnce()
   PlayerFrame:HookScript("OnEnter", OnPlayerFrameEnter)
   PlayerFrame:HookScript("OnLeave", OnPlayerFrameLeave)
 
+  -- Hook hover for action bars, pet bar, and stance bar to support
+  -- alpha-hide with hover reveal.
+  local frames = ResolveActionBarFrames()
+  if frames then
+    for _, info in ipairs(frames) do
+      local f = info.frame
+      if f and f.HookScript and not f.PFH_ActionBarHooked then
+        f.PFH_ActionBarHooked = true
+        local objType = f.GetObjectType and f:GetObjectType() or nil
+
+        -- For container/background frames, ensure they can see hover
+        -- without interfering with button clicks. For actual buttons,
+        -- leave mouse settings alone so Blizzard click handling works.
+        if objType ~= "Button" and objType ~= "CheckButton" then
+          if f.EnableMouse then
+            f:EnableMouse(true)
+          end
+          if f.SetMouseMotionEnabled then
+            f:SetMouseMotionEnabled(true)
+          end
+        end
+        pcall(f.HookScript, f, "OnEnter", OnActionBarEnter)
+        pcall(f.HookScript, f, "OnLeave", OnActionBarLeave)
+      end
+    end
+  end
+
   Apply()
 end
 
@@ -1257,11 +1617,16 @@ PFH.HasTargetLike = HasTargetLike
 PFH.ShouldShowPlayerFrame = ShouldShowPlayerFrame
 PFH.ShouldShowWidgets = ShouldShowWidgets
 PFH.ShouldShowBuffFrame = ShouldShowBuffFrame
+PFH.ShouldShowActionBar1 = ShouldShowActionBar1
+PFH.ShouldShowPetBar = ShouldShowPetBar
+PFH.ShouldShowStanceBar = ShouldShowStanceBar
+PFH.ShouldShowMultiActionBars = ShouldShowMultiActionBars
 
 PFH.ResolveWidgetFramesOnce = ResolveWidgetFramesOnce
 PFH.ResolveWidgetFramesWithRetries = ResolveWidgetFramesWithRetries
 PFH.NeedWidgets = NeedWidgets
 PFH.HaveRequiredWidgets = HaveRequiredWidgets
+PFH.ResolveActionBarFramesOnce = ResolveActionBarFrames
 
 PFH.SetPlayerFrameVisible = SetPlayerFrameVisible
 PFH.SetBuffFrameVisible = SetBuffFrameVisible

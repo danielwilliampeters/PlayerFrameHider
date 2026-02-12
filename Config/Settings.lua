@@ -420,21 +420,6 @@ function PFH.CreateSettingsPanel()
     0, 1, 0.05, DEFAULTS.hiddenAlpha
   )
 
-  AddHeader("Buff Frame")
-
-  AddCheckbox(
-    "hideBuffFrame",
-    "Hide Buff Frame",
-    "Hides the player buff frame by default. It briefly appears when your buffs change or when you hover over it."
-  )
-
-  AddSlider(
-    "buffHiddenAlpha",
-    "Hidden Opacity",
-    "Opacity used when the Buff Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-    0, 1, 0.05, DEFAULTS.buffHiddenAlpha or DEFAULTS.hiddenAlpha
-  )
-
   AddHeader("Cooldown Manager")
 
   AddCooldownDropdown()
@@ -451,6 +436,53 @@ function PFH.CreateSettingsPanel()
   --   "Opacity used when the Cooldown Manager is hidden.\n\n0% = fully hidden, 100% = fully visible.",
   --   0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
   -- )
+
+  AddHeader("Action Bars")
+
+  AddCheckbox(
+    "hideAllActionBars",
+    "Hide Secondary Action Bars",
+    "Hides additional action bars by default.\n\nAction Bar 1 can be controlled separately below."
+  )
+
+  AddCheckbox(
+    "hideActionBar1",
+    "Hide Action Bar 1",
+    "Hides Action Bar 1 by default.\n\nVisibility rules control when it is shown."
+  )
+
+  AddCheckbox(
+    "hidePetBar",
+    "Hide Pet Bar",
+    "Hides the Pet Action Bar by default."
+  )
+
+  AddCheckbox(
+    "hideStanceBar",
+    "Hide Stance Bar",
+    "Hides the Stance Bar by default."
+  )
+
+  AddCheckbox(
+    "showActionBar1WhenSkyriding",
+    "Show Action Bar 1 While Flying",
+    "Keeps Action Bar 1 visible while you are flying, even when it would normally be hidden."
+  )
+
+  AddHeader("Buffs")
+
+  AddCheckbox(
+    "hideBuffFrame",
+    "Hide Buff Frame",
+    "Hides the Blizzard Buff Frame by default.\n\nVisibility rules control when it is shown."
+  )
+
+  AddSlider(
+    "buffHiddenAlpha",
+    "Hidden Opacity",
+    "Opacity used when the Buff Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+    0, 1, 0.05, DEFAULTS.buffHiddenAlpha or DEFAULTS.hiddenAlpha
+  )
 
   AddHeader("Objective Tracker")
 

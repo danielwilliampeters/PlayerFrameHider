@@ -24,6 +24,9 @@ local function OnLogin()
   if PFH.InitBuffFrame then
     PFH.InitBuffFrame()
   end
+  if PFH.ResolveActionBarFramesOnce then
+    PFH.ResolveActionBarFramesOnce()
+  end
   if PFH.InitWorldMapHooks then
     PFH.InitWorldMapHooks()
   end
