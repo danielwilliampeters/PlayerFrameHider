@@ -425,12 +425,12 @@ function PFH.CreateSettingsPanel()
     "Automatically shows the Cooldown Manager when it has active cooldowns, even if you are out of combat and have no target."
   )
 
-  AddSlider(
-    "cooldownHiddenAlpha",
-    "Hidden Opacity",
-    "Opacity used when the Cooldown Manager is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-    0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
-  )
+  -- AddSlider(
+  --   "cooldownHiddenAlpha",
+  --   "Hidden Opacity",
+  --   "Opacity used when the Cooldown Manager is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+  --   0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
+  -- )
 
   AddHeader("Objective Tracker")
 
@@ -446,12 +446,12 @@ function PFH.CreateSettingsPanel()
     "Shows the Objective Tracker when a quest is set as your active waypoint."
   )
 
-  AddSlider(
-    "objectiveHiddenAlpha",
-    "Hidden Opacity",
-    "Opacity used when the Objective Tracker is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-    0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
-  )
+  -- AddSlider(
+  --   "objectiveHiddenAlpha",
+  --   "Hidden Opacity",
+  --   "Opacity used when the Objective Tracker is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+  --   0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
+  -- )
 
   return category
 end

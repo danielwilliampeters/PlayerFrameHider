@@ -34,9 +34,9 @@ PFH.DEFAULTS = {
   cooldownDisplayMode = 0,
   showCooldownManagerWhenActive = false,
   alwaysShowInInstance = true,
-  hiddenAlpha = 0,              -- player frame hidden opacity
-  cooldownHiddenAlpha = 0,      -- cooldown manager hidden opacity
-  objectiveHiddenAlpha = 0,     -- objective tracker hidden opacity
+  hiddenAlpha = 0, -- player frame hidden opacity
+  cooldownHiddenAlpha = 0,
+  objectiveHiddenAlpha = 0,
 }
 
 -- =========================================================
@@ -105,6 +105,8 @@ PFH.state = PFH.state or {
 local state = PFH.state
 
 PFH.timers = PFH.timers or {}
+
+local Apply
 
 -- =========================================================
 -- DB defaults / migration
@@ -423,6 +425,29 @@ end
 -- Frame resolution (Edit Mode widgets)
 -- =========================================================
 
+-- Debounced wrapper used specifically for widget HookScript callbacks.
+-- This avoids spamming full Apply() calls when Edit Mode widgets are
+-- rapidly shown/hidden or otherwise updated in quick succession.
+local widgetApplyScheduled = false
+
+local function ApplyFromWidget()
+  if widgetApplyScheduled then
+    return
+  end
+
+  widgetApplyScheduled = true
+
+  C_Timer.After(0, function()
+    widgetApplyScheduled = false
+
+    -- Use the core Apply routine; it is defined later in this
+    -- file and wired via the forward declaration above.
+    if Apply then
+      Apply()
+    end
+  end)
+end
+
 local function FindFrameByNameHint(hint)
   for k, v in pairs(_G) do
     if type(k) == "string" and type(v) == "table" then
@@ -456,10 +481,10 @@ local function ResolveWidgetFramesOnce()
 
       if type(frame.HasScript) == "function" then
         if frame:HasScript("OnShow") and frame.HookScript then
-          pcall(frame.HookScript, frame, "OnShow", Apply)
+          pcall(frame.HookScript, frame, "OnShow", ApplyFromWidget)
         end
         if frame:HasScript("OnHide") and frame.HookScript then
-          pcall(frame.HookScript, frame, "OnHide", Apply)
+          pcall(frame.HookScript, frame, "OnHide", ApplyFromWidget)
         end
       end
     end
@@ -486,8 +511,6 @@ local function HaveRequiredWidgets()
 end
 
 -- forward declare
-local Apply
-
 local function ResolveWidgetFramesWithRetries()
   local tries = 0
   local ticker
@@ -840,11 +863,10 @@ end
 -- Core apply
 -- =========================================================
 
-function Apply()
+Apply = function()
   if not PlayerFrame then return end
 
   SetPlayerFrameVisible(ShouldShowPlayerFrame())
-
   SetObjectiveTrackerVisible(ShouldShowObjectiveTracker())
 
   ApplyWidget(state.EssentialCDFrame, PFH_DB.controlEssentialCooldowns)
