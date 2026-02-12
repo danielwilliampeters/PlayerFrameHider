@@ -28,6 +28,10 @@ local function OnLogin()
     PFH.ResolveWidgetFramesWithRetries()
   end
 
+  if PFH.EnsureCooldownWatcher then
+    PFH.EnsureCooldownWatcher()
+  end
+
   if not state.loadMessageShown then
     local version = PFH.VERSION or "dev"
     print("|cFF00FF00PlayerFrameHider:|r v" .. version .. " Loaded. Use |cFFFFA500/pfh|r to open options.")
