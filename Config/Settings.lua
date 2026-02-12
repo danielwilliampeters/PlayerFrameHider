@@ -129,6 +129,16 @@ function PFH.CreateSettingsPanel()
         end
       end
 
+      if key == "showCooldownManagerWhenActive" then
+        if PFH.EnsureCooldownWatcher and PFH.StopCooldownWatcher then
+          if PFH_DB.showCooldownManagerWhenActive then
+            PFH.EnsureCooldownWatcher()
+          else
+            PFH.StopCooldownWatcher()
+          end
+        end
+      end
+
       PFH.ResolveWidgetFramesOnce()
       PFH.Apply()
 
@@ -292,7 +302,7 @@ function PFH.CreateSettingsPanel()
       varName,
       PFH_DB,
       (Settings.VarType and Settings.VarType.Number) or "number",
-      "Cooldown Manager",
+      "Hide Cooldown Manager",
       defaultValue
     )
     if not (ok and setting) then
@@ -363,12 +373,6 @@ function PFH.CreateSettingsPanel()
   )
 
   AddCheckbox(
-    "hidePlayerFrame",
-    "Hide Player Frame",
-    "Hides the Blizzard Player Frame by default.\n\nVisibility rules control when it is shown."
-  )
-
-  AddCheckbox(
     "hoverRevealOutOfCombat",
     "Hover to Reveal",
     "When the Player Frame or Objective Tracker is hidden, hovering over it temporarily reveals it."
@@ -390,7 +394,13 @@ function PFH.CreateSettingsPanel()
     "Forces the Player Frame, Cooldown Manager, and Objective Tracker to stay visible in instances."
   )
 
-  AddCooldownDropdown()
+  AddHeader("Player Frame")
+
+  AddCheckbox(
+    "hidePlayerFrame",
+    "Hide Player Frame",
+    "Hides the Blizzard Player Frame by default.\n\nVisibility rules control when it is shown."
+  )
 
   AddCheckbox(
     "showWhenHealthBelow100",
@@ -400,9 +410,26 @@ function PFH.CreateSettingsPanel()
 
   AddSlider(
     "hiddenAlpha",
-    "Player Frame Hidden Opacity",
+    "Hidden Opacity",
     "Opacity used when the Player Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
     0, 1, 0.05, DEFAULTS.hiddenAlpha
+  )
+
+  AddHeader("Cooldown Manager")
+
+  AddCooldownDropdown()
+
+  AddCheckbox(
+    "showCooldownManagerWhenActive",
+    "Show When Active",
+    "Automatically shows the Cooldown Manager when it has active cooldowns, even if you are out of combat and have no target."
+  )
+
+  AddSlider(
+    "cooldownHiddenAlpha",
+    "Hidden Opacity",
+    "Opacity used when the Cooldown Manager is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+    0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
   )
 
   AddHeader("Objective Tracker")
@@ -417,6 +444,13 @@ function PFH.CreateSettingsPanel()
     "forceShowTrackerWhenSuperTracked",
     "Show for Active Waypoint",
     "Shows the Objective Tracker when a quest is set as your active waypoint."
+  )
+
+  AddSlider(
+    "objectiveHiddenAlpha",
+    "Hidden Opacity",
+    "Opacity used when the Objective Tracker is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+    0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
   )
 
   return category

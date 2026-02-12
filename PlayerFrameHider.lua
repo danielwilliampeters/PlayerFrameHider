@@ -32,8 +32,11 @@ PFH.DEFAULTS = {
   controlUtilityCooldowns = false,
   controlTrackedBuffs = false,
   cooldownDisplayMode = 0,
+  showCooldownManagerWhenActive = false,
   alwaysShowInInstance = true,
-  hiddenAlpha = 0,
+  hiddenAlpha = 0,              -- player frame hidden opacity
+  cooldownHiddenAlpha = 0,      -- cooldown manager hidden opacity
+  objectiveHiddenAlpha = 0,     -- objective tracker hidden opacity
 }
 
 -- =========================================================
@@ -93,6 +96,10 @@ PFH.state = PFH.state or {
   combatHoldPlayer = false,
   combatHoldWidgets = false,
   justLeftCombat = false,
+
+  -- cooldown manager watcher
+  cooldownWatcherTicker = nil,
+  lastWidgetsShouldShow = nil,
 }
 
 local state = PFH.state
@@ -138,11 +145,21 @@ function PFH.ApplyDefaults()
   ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
   ApplyDefault("showObjectiveUpdates", D.showObjectiveUpdates)
   ApplyDefault("forceShowTrackerWhenSuperTracked", D.forceShowTrackerWhenSuperTracked)
+  ApplyDefault("showCooldownManagerWhenActive", D.showCooldownManagerWhenActive)
   ApplyDefault("alwaysShowInInstance", D.alwaysShowInInstance)
 
   ApplyNumberDefault("objectiveHoverHideDelay", D.objectiveHoverHideDelay, 0)
   ApplyNumberDefault("hiddenAlpha", D.hiddenAlpha, 0)
   PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
+
+  local defaultWidgetAlpha = PFH_DB.hiddenAlpha or D.hiddenAlpha or 0
+  ApplyNumberDefault("cooldownHiddenAlpha", defaultWidgetAlpha, 0)
+  PFH_DB.cooldownHiddenAlpha = ClampHiddenAlpha(PFH_DB.cooldownHiddenAlpha)
+
+  local defaultObjectiveAlpha = PFH_DB.hiddenAlpha or D.hiddenAlpha or 0
+  ApplyNumberDefault("objectiveHiddenAlpha", defaultObjectiveAlpha, 0)
+  PFH_DB.objectiveHiddenAlpha = ClampHiddenAlpha(PFH_DB.objectiveHiddenAlpha)
+
   ApplyNumberDefault("combatHoldSeconds", D.combatHoldSeconds or 0, 0)
 
   -- migrate old hideOutOfCombat -> hidePlayerFrame
@@ -257,6 +274,109 @@ local function ShouldShowPlayerFrame()
   return false
 end
 
+local function GetItemCooldownFrame(item)
+  if type(item) ~= "table" then return nil end
+
+  -- Commonly-used cooldown frame fields
+  local candidates = {
+    item.cooldown,
+    item.Cooldown,
+    item.CooldownWidget,
+    item.CooldownFrame,
+  }
+
+  for i = 1, #candidates do
+    local cd = candidates[i]
+    if cd and cd.GetCooldownTimes then
+      return cd
+    end
+  end
+
+  -- Fallback: scan children for a cooldown frame
+  if item.GetChildren then
+    local numChildren = select("#", item:GetChildren())
+    for i = 1, numChildren do
+      local child = select(i, item:GetChildren())
+      if child and child.GetCooldownTimes then
+        return child
+      end
+    end
+  end
+
+  return nil
+end
+
+local function PoolHasActiveCooldown(pool)
+  if not pool or type(pool) ~= "table" then
+    return false
+  end
+
+  local function ForEachActive(callback)
+    if type(pool.EnumerateActive) == "function" then
+      for item in pool:EnumerateActive() do
+        if callback(item) then return true end
+      end
+    elseif type(pool.activeObjects) == "table" then
+      for item in pairs(pool.activeObjects) do
+        if callback(item) then return true end
+      end
+    end
+    return false
+  end
+
+  local nowMs = GetTime() * 1000
+
+  return ForEachActive(function(item)
+    local cd = GetItemCooldownFrame(item)
+    if cd and cd.GetCooldownTimes then
+      local ok, start, duration = pcall(cd.GetCooldownTimes, cd)
+      if ok and start and duration and duration > 0 then
+        local remaining = (start + duration) - nowMs
+        if remaining and remaining > 100 then -- >0.1s remaining
+          return true
+        end
+      end
+    end
+    return false
+  end)
+end
+
+local function ViewerHasActiveCooldown(viewer)
+  if not viewer or type(viewer) ~= "table" then return false end
+
+  if PoolHasActiveCooldown(viewer.itemFramePool) then
+    return true
+  end
+
+  if PoolHasActiveCooldown(viewer.pandemicIconPool) then
+    return true
+  end
+
+  return false
+end
+
+local function AreWidgetsActive()
+  if not PFH_DB.enabled then return false end
+  if not PFH_DB.showCooldownManagerWhenActive then return false end
+  if not (PFH_DB.controlEssentialCooldowns or PFH_DB.controlUtilityCooldowns or PFH_DB.controlTrackedBuffs) then
+    return false
+  end
+
+  if PFH_DB.controlEssentialCooldowns and ViewerHasActiveCooldown(state.EssentialCDFrame) then
+    return true
+  end
+
+  if PFH_DB.controlUtilityCooldowns and ViewerHasActiveCooldown(state.UtilityCDFrame) then
+    return true
+  end
+
+  if PFH_DB.controlTrackedBuffs and ViewerHasActiveCooldown(state.TrackedBuffsFrame) then
+    return true
+  end
+
+  return false
+end
+
 local function ShouldShowWidgets()
   if not PFH_DB.enabled then
     return true -- addon disabled => do not hide widgets
@@ -270,7 +390,17 @@ local function ShouldShowWidgets()
 
   -- Mirror player frame rules for target/soft-target visibility so that
   -- the "Show with Target" setting is respected for widgets as well.
-  return IsInCombat() or HasTargetLike()
+  if IsInCombat() or HasTargetLike() then
+    return true
+  end
+
+  -- Optionally show widgets whenever the Blizzard Cooldown Manager
+  -- considers them active (e.g. when it has cooldowns to display)
+  if AreWidgetsActive() then
+    return true
+  end
+
+  return false
 end
 
 local function GetObjectiveHoverHideDelay()
@@ -318,6 +448,31 @@ local function ResolveWidgetFramesOnce()
   state.EssentialCDFrame = state.EssentialCDFrame or _G.EssentialCooldownsFrame or FindFrameByNameHint("EssentialCooldown")
   state.UtilityCDFrame = state.UtilityCDFrame or _G.UtilityCooldownsFrame or _G.UtilityCooldownFrame or _G.UtilityCooldowns or FindFrameByNameHint("UtilityCooldown")
   state.TrackedBuffsFrame = state.TrackedBuffsFrame or _G.TrackedBuffsFrame or _G.TrackedBuffFrame or _G.TrackedBuffs or FindFrameByNameHint("BuffIconCooldownViewer")
+
+  if not state.widgetFramesHooked then
+    local function HookWidgetFrame(frame)
+      if not frame or frame.PFH_WidgetHooked then return end
+
+      frame.PFH_WidgetHooked = true
+
+      if type(frame.HasScript) == "function" then
+        if frame:HasScript("OnShow") and frame.HookScript then
+          pcall(frame.HookScript, frame, "OnShow", Apply)
+        end
+        if frame:HasScript("OnHide") and frame.HookScript then
+          pcall(frame.HookScript, frame, "OnHide", Apply)
+        end
+      end
+    end
+
+    HookWidgetFrame(state.EssentialCDFrame)
+    HookWidgetFrame(state.UtilityCDFrame)
+    HookWidgetFrame(state.TrackedBuffsFrame)
+
+    if (state.EssentialCDFrame or state.UtilityCDFrame or state.TrackedBuffsFrame) then
+      state.widgetFramesHooked = true
+    end
+  end
 end
 
 local function NeedWidgets()
@@ -424,7 +579,7 @@ local function SetObjectiveTrackerVisible(wantVisible)
   local frame = GetObjectiveFrame()
   if not frame then return end
 
-  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.objectiveHiddenAlpha or PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
     if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
@@ -561,7 +716,7 @@ local function SetPlayerFrameVisible(wantVisible)
   if not PlayerFrame then return end
 
   local inLockdown = InCombatLockdown()
-  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
     state.playerFrameHidden = false
@@ -578,6 +733,62 @@ local function SetPlayerFrameVisible(wantVisible)
       else
         PlayerFrame:EnableMouse(false)
       end
+    end
+  end
+end
+
+local function SetViewerMouseEnabled(viewer, enabled)
+  if not viewer or type(viewer) ~= "table" then return end
+
+  local function ForEachActiveInPool(pool, callback)
+    if not pool or type(pool) ~= "table" then return end
+
+    if type(pool.EnumerateActive) == "function" then
+      for item in pool:EnumerateActive() do
+        callback(item)
+      end
+    elseif type(pool.activeObjects) == "table" then
+      for item in pairs(pool.activeObjects) do
+        callback(item)
+      end
+    end
+  end
+
+  local function SetMouseOnItem(item)
+    if not item then return end
+    if item.EnableMouse then
+      item:EnableMouse(enabled)
+    end
+    if item.SetMouseClickEnabled then
+      item:SetMouseClickEnabled(enabled)
+    end
+    if item.SetMouseMotionEnabled then
+      item:SetMouseMotionEnabled(enabled)
+    end
+  end
+
+  ForEachActiveInPool(viewer.itemFramePool, SetMouseOnItem)
+  ForEachActiveInPool(viewer.pandemicIconPool, SetMouseOnItem)
+
+  if viewer.EnableMouse then
+    viewer:EnableMouse(enabled)
+  end
+end
+
+local function SetWidgetVisible(frame, wantVisible)
+  if not frame or not frame.SetAlpha then return end
+
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.cooldownHiddenAlpha or PFH_DB.hiddenAlpha or 0)
+
+  if wantVisible then
+    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+    if not InCombatLockdown() then
+      SetViewerMouseEnabled(frame, true)
+    end
+  else
+    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
+    if hiddenAlpha < 0.99 and not InCombatLockdown() then
+      SetViewerMouseEnabled(frame, false)
     end
   end
 end
@@ -622,16 +833,8 @@ end
 local function ApplyWidget(frame, enabled)
   if not enabled or not frame then return end
 
-  -- Never try to show/hide protected frames during combat.
-  if InCombatLockdown() then return end
-
   local want = ShouldShowWidgets()
-
-  if want then
-    if not frame:IsShown() then pcall(frame.Show, frame) end
-  else
-    if frame:IsShown() then pcall(frame.Hide, frame) end
-  end
+  SetWidgetVisible(frame, want)
 end
 
 -- =========================================================
@@ -731,6 +934,35 @@ local function EnsureHurtTicker()
 end
 
 -- =========================================================
+-- Cooldown manager watcher (polls for active cooldowns)
+-- =========================================================
+
+local function StopCooldownWatcher()
+  if state.cooldownWatcherTicker then
+    state.cooldownWatcherTicker:Cancel()
+    state.cooldownWatcherTicker = nil
+  end
+end
+
+local function EnsureCooldownWatcher()
+  if state.cooldownWatcherTicker then return end
+  if not PFH_DB.showCooldownManagerWhenActive then return end
+
+  state.cooldownWatcherTicker = C_Timer.NewTicker(0.5, function()
+    if not PFH_DB.showCooldownManagerWhenActive then
+      StopCooldownWatcher()
+      return
+    end
+
+    local shouldShow = ShouldShowWidgets()
+    if state.lastWidgetsShouldShow == nil or state.lastWidgetsShouldShow ~= shouldShow then
+      state.lastWidgetsShouldShow = shouldShow
+      Apply()
+    end
+  end)
+end
+
+-- =========================================================
 -- Show veto hooks (prevents other UI code forcing Show())
 -- =========================================================
 
@@ -788,6 +1020,9 @@ end
 PFH.MarkHurt = MarkHurt
 PFH.EnsureHurtTicker = EnsureHurtTicker
 PFH.StopHurtTicker = StopHurtTicker
+
+PFH.EnsureCooldownWatcher = EnsureCooldownWatcher
+PFH.StopCooldownWatcher = StopCooldownWatcher
 
 PFH.IsAlwaysShowInstance = IsAlwaysShowInstance
 PFH.IsInCombat = IsInCombat
