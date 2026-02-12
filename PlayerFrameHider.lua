@@ -324,19 +324,18 @@ local function PoolHasActiveCooldown(pool)
     return false
   end
 
-  local nowMs = GetTime() * 1000
-
   return ForEachActive(function(item)
-    local cd = GetItemCooldownFrame(item)
-    if cd and cd.GetCooldownTimes then
-      local ok, start, duration = pcall(cd.GetCooldownTimes, cd)
-      if ok and start and duration and duration > 0 then
-        local remaining = (start + duration) - nowMs
-        if remaining and remaining > 100 then -- >0.1s remaining
-          return true
-        end
-      end
+    if type(item) ~= "table" then
+      return false
     end
+
+    -- If we have a cooldown widget and it is currently shown,
+    -- treat it as active without inspecting any secret/secure fields.
+    local cd = GetItemCooldownFrame(item)
+    if cd and cd.IsShown and cd:IsShown() then
+      return true
+    end
+
     return false
   end)
 end
