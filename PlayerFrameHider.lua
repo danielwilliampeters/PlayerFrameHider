@@ -1283,16 +1283,12 @@ local function ApplyWidget(frame, enabled)
 end
 
 local function ApplyActionBars()
-  local frames = ResolveActionBarFrames()
-  if not frames then
+  if not AnyActionBarHideEnabled() then
     return
   end
 
-  if not AnyActionBarHideEnabled() then
-    -- Ensure all known action bars are fully visible.
-    for _, info in ipairs(frames) do
-      SetSimpleFrameVisible(info.frame, true)
-    end
+  local frames = ResolveActionBarFrames()
+  if not frames then
     return
   end
 
