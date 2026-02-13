@@ -10,8 +10,12 @@ local DEFAULTS = PFH.DEFAULTS
 local inCallback = false
 
 local ENABLE_ACTION_BARS = false
+local ENABLE_ACTION_BARS_ALPHA = false
 local ENABLE_COOLDOWN_ALPHA = false
 local ENABLE_OBJECTIVE_ALPHA = false
+local ENABLE_HOVER_REVEAL_OBJECTIVES = false
+local ENABLE_BUFF_ALPHA = false
+local ENABLE_HOVER_REVEAL_BUFFS = false
 
 -- =========================================================
 -- Settings panel (Blizzard-native vertical Settings layout)
@@ -111,24 +115,37 @@ function PFH.CreateSettingsPanel()
       end
 
       if key == "hoverRevealOutOfCombat" and not PFH_DB.hoverRevealOutOfCombat then
-        -- Turning off hover reveal should immediately clear any
-        -- hover overrides/timers for both the player frame and
-        -- the objective tracker.
+        -- Turning off global hover reveal should immediately clear any
+        -- hover overrides/timers for the player frame.
         if state.hoverHideTimer then
           state.hoverHideTimer:Cancel()
           state.hoverHideTimer = nil
         end
         state.hoverOverride = false
+      end
+
+      if key == "objectiveHoverReveal" and not PFH_DB.objectiveHoverReveal then
         if state.objectiveHoverHideTimer then
           state.objectiveHoverHideTimer:Cancel()
           state.objectiveHoverHideTimer = nil
         end
         state.objectiveHoverOverride = false
+      end
+
+      if key == "buffHoverReveal" and not PFH_DB.buffHoverReveal then
         if state.buffHoverHideTimer then
           state.buffHoverHideTimer:Cancel()
           state.buffHoverHideTimer = nil
         end
         state.buffHoverOverride = false
+      end
+
+      if key == "actionBarHoverReveal" and not PFH_DB.actionBarHoverReveal then
+        if state.actionBarHoverHideTimer then
+          state.actionBarHoverHideTimer:Cancel()
+          state.actionBarHoverHideTimer = nil
+        end
+        state.actionBarHoverOverride = false
       end
 
       if key == "combatHoldSeconds" then
@@ -381,11 +398,7 @@ function PFH.CreateSettingsPanel()
     "Turns Player Frame Hider on or off.\n\nRequires a UI reload."
   )
 
-  AddCheckbox(
-    "hoverRevealOutOfCombat",
-    "Hover to Reveal",
-    "When the Player Frame or Objective Tracker is hidden, hovering over it temporarily reveals it."
-  )
+  AddHeader("Display")
 
   AddCheckbox(
     "showInCombat",
@@ -400,7 +413,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "alwaysShowInInstance",
     "Always Show in Instances",
-    "Forces the Player Frame, Cooldown Manager, and Objective Tracker to stay visible in instances."
+    "Forces the Player Frame, Cooldown Manager, Buffs, and Objective Tracker to stay visible in instances."
   )
 
   AddHeader("Player Frame")
@@ -408,13 +421,19 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "hidePlayerFrame",
     "Hide Player Frame",
-    "Hides the Blizzard Player Frame by default.\n\nVisibility rules control when it is shown."
+    "Hides the Blizzard Player Frame by default.\n\nShows again based on your display rules (combat/target) and when your health changes.\n\nTip: Enable \"Hover to Reveal\" to temporarily show it on mouseover."
   )
 
   AddCheckbox(
     "showWhenHealthBelow100",
     "Show Player Frame on Health Change",
     "Temporarily show the Player Frame when your health changes."
+  )
+
+  AddCheckbox(
+    "hoverRevealOutOfCombat",
+    "Hover to Reveal",
+    "When the Player Frame is hidden, hovering over it temporarily reveals it."
   )
 
   AddSlider(
@@ -440,6 +459,62 @@ function PFH.CreateSettingsPanel()
       "Hidden Opacity",
       "Opacity used when the Cooldown Manager is hidden.\n\n0% = fully hidden, 100% = fully visible.",
       0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
+    )
+  end
+
+  AddHeader("Buffs")
+
+  AddCheckbox(
+    "hideBuffFrame",
+    "Hide Buff Frame",
+    "Hides the Blizzard Buff Frame when idle and shows it again when your buffs change.\n\nHovering over the Buff Frame temporarily reveals it."
+  )
+
+  if ENABLE_HOVER_REVEAL_BUFFS then
+    AddCheckbox(
+      "buffHoverReveal",
+      "Hover to Reveal Buffs",
+      "When the Buff Frame is hidden, hovering over it temporarily reveals it."
+    )
+  end
+
+  if ENABLE_BUFF_ALPHA then
+    AddSlider(
+      "buffHiddenAlpha",
+      "Hidden Opacity",
+      "Opacity used when the Buff Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+      0, 1, 0.05, DEFAULTS.buffHiddenAlpha or DEFAULTS.hiddenAlpha
+    )
+  end
+
+  AddHeader("Objective Tracker")
+
+  AddCheckbox(
+    "hideObjectiveTracker",
+    "Hide Objective Tracker",
+    "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nHovering over the tracker temporarily reveals it."
+  )
+
+  if ENABLE_HOVER_REVEAL_OBJECTIVES then
+    AddCheckbox(
+      "objectiveHoverReveal",
+      "Hover to Reveal Objectives",
+      "When the Objective Tracker is hidden, hovering over it temporarily reveals it."
+    )
+  end
+
+  AddCheckbox(
+    "forceShowTrackerWhenSuperTracked",
+    "Show for Active Waypoint",
+    "Shows the Objective Tracker when a quest is set as your active waypoint."
+  )
+
+  if ENABLE_OBJECTIVE_ALPHA then
+    AddSlider(
+      "objectiveHiddenAlpha",
+      "Hidden Opacity",
+      "Opacity used when the Objective Tracker is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+      0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
     )
   end
 
@@ -470,56 +545,28 @@ function PFH.CreateSettingsPanel()
       "Hides the Stance Bar by default."
     )
 
+    if ENABLE_HOVER_REVEAL_ACTION_BARS then
+      AddCheckbox(
+        "actionBarHoverReveal",
+        "Hover to Reveal Action Bars",
+        "When action bars are hidden, hovering over them temporarily reveals them."
+      )
+    end
+
     AddCheckbox(
       "showActionBar1WhenSkyriding",
       "Show Action Bar 1 While Flying",
       "Keeps Action Bar 1 visible while you are flying, even when it would normally be hidden."
     )
 
-    AddSlider(
-      "actionHiddenAlpha",
-      "Hidden Opacity",
-      "Opacity used when action bars are hidden.\n\n0% = fully hidden, 100% = fully visible.",
-      0, 1, 0.05, DEFAULTS.actionHiddenAlpha or DEFAULTS.hiddenAlpha
-    )
-  end
-
-  AddHeader("Buffs")
-
-  AddCheckbox(
-    "hideBuffFrame",
-    "Hide Buff Frame",
-    "Hides the Blizzard Buff Frame by default.\n\nVisibility rules control when it is shown."
-  )
-
-  AddSlider(
-    "buffHiddenAlpha",
-    "Hidden Opacity",
-    "Opacity used when the Buff Frame is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-    0, 1, 0.05, DEFAULTS.buffHiddenAlpha or DEFAULTS.hiddenAlpha
-  )
-
-  AddHeader("Objective Tracker")
-
-  AddCheckbox(
-    "hideObjectiveTracker",
-    "Hide Objective Tracker",
-    "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nTip: Enable \"Hover to Reveal\" to temporarily show it on mouseover."
-  )
-
-  AddCheckbox(
-    "forceShowTrackerWhenSuperTracked",
-    "Show for Active Waypoint",
-    "Shows the Objective Tracker when a quest is set as your active waypoint."
-  )
-
-  if ENABLE_OBJECTIVE_ALPHA then
-    AddSlider(
-      "objectiveHiddenAlpha",
-      "Hidden Opacity",
-      "Opacity used when the Objective Tracker is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-      0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
-    )
+    if ENABLE_ACTION_BARS_ALPHA then
+      AddSlider(
+        "actionHiddenAlpha",
+        "Hidden Opacity",
+        "Opacity used when action bars are hidden.\n\n0% = fully hidden, 100% = fully visible.",
+        0, 1, 0.05, DEFAULTS.actionHiddenAlpha or DEFAULTS.hiddenAlpha
+      )
+    end
   end
 
   return category

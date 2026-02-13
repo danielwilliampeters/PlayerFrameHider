@@ -48,6 +48,9 @@ PFH.DEFAULTS = {
   cooldownHiddenAlpha = 0,
   objectiveHiddenAlpha = 0,
   buffHiddenAlpha = 0,
+  objectiveHoverReveal = true,
+  buffHoverReveal = true,
+  actionBarHoverReveal = true,
 }
 
 -- =========================================================
@@ -138,7 +141,11 @@ function PFH.ApplyDefaults()
 
   -- migrate legacy showIfTarget into showTargetMode before any defaults
   if PFH_DB.showTargetMode == nil then
-    PFH_DB.showTargetMode = (PFH_DB.showIfTarget == true) and 1 or 0
+    if PFH_DB.showIfTarget ~= nil then
+      PFH_DB.showTargetMode = (PFH_DB.showIfTarget == true) and 1 or 0
+    else
+      PFH_DB.showTargetMode = D.showTargetMode
+    end
   end
 
   -- basic defaults
@@ -147,6 +154,9 @@ function PFH.ApplyDefaults()
   ApplyDefault("showTargetMode", D.showTargetMode)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
+  ApplyDefault("objectiveHoverReveal", D.objectiveHoverReveal)
+  ApplyDefault("buffHoverReveal", D.buffHoverReveal)
+  ApplyDefault("actionBarHoverReveal", D.actionBarHoverReveal)
   ApplyDefault("hideAllActionBars", D.hideAllActionBars)
   ApplyDefault("hideActionBar1", D.hideActionBar1)
   ApplyDefault("hidePetBar", D.hidePetBar)
@@ -755,8 +765,9 @@ local function ShouldShowActionBar1()
   end
 
   -- When Bar 1 is configured as hidden, only show it while the
-  -- action-bar hover override is active (mouse over bar/buttons).
-  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
+  -- action-bar hover override is active (mouse over bar/buttons),
+  -- if hover reveal for action bars is enabled.
+  if PFH_DB.actionBarHoverReveal and state.actionBarHoverOverride then
     return true
   end
 
@@ -774,7 +785,7 @@ local function ShouldShowPetBar()
     return true
   end
 
-  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
+  if PFH_DB.actionBarHoverReveal and state.actionBarHoverOverride then
     return true
   end
 
@@ -792,7 +803,7 @@ local function ShouldShowStanceBar()
     return true
   end
 
-  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
+  if PFH_DB.actionBarHoverReveal and state.actionBarHoverOverride then
     return true
   end
 
@@ -810,7 +821,7 @@ local function ShouldShowMultiActionBars()
     return true
   end
 
-  if PFH_DB.hoverRevealOutOfCombat and state.actionBarHoverOverride then
+  if PFH_DB.actionBarHoverReveal and state.actionBarHoverOverride then
     return true
   end
 
@@ -847,7 +858,7 @@ end
 local function OnObjectiveEnter()
   if not PFH_DB.enabled then return end
   if not PFH_DB.hideObjectiveTracker then return end
-  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if not PFH_DB.objectiveHoverReveal then return end
 
   if state.objectiveHoverHideTimer then
     state.objectiveHoverHideTimer:Cancel()
@@ -860,7 +871,7 @@ end
 
 local function OnObjectiveLeave()
   if not PFH_DB.hideObjectiveTracker then return end
-  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if not PFH_DB.objectiveHoverReveal then return end
 
   if state.objectiveHoverHideTimer then
     state.objectiveHoverHideTimer:Cancel()
@@ -950,7 +961,7 @@ end
 local function OnBuffFrameEnter()
   if not PFH_DB.enabled then return end
   if not PFH_DB.hideBuffFrame then return end
-  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if not PFH_DB.buffHoverReveal then return end
   if IsInCombat() then return end
 
   if state.buffHoverHideTimer then
@@ -964,7 +975,7 @@ end
 
 local function OnBuffFrameLeave()
   if not PFH_DB.hideBuffFrame then return end
-  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if not PFH_DB.buffHoverReveal then return end
 
   if state.buffHoverHideTimer then
     state.buffHoverHideTimer:Cancel()
@@ -981,7 +992,7 @@ local function OnBuffFrameLeave()
 
   state.buffHoverHideTimer = C_Timer.NewTimer(delay, function()
     state.buffHoverHideTimer = nil
-    if not PFH_DB.hoverRevealOutOfCombat then return end
+    if not PFH_DB.buffHoverReveal then return end
     if IsInCombat() then return end
     state.buffHoverOverride = false
     Apply()
@@ -1224,7 +1235,7 @@ end
 local function OnActionBarEnter()
   if not PFH_DB.enabled then return end
   if not AnyActionBarHideEnabled() then return end
-  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if not PFH_DB.actionBarHoverReveal then return end
 
   if state.actionBarHoverHideTimer then
     state.actionBarHoverHideTimer:Cancel()
@@ -1237,7 +1248,7 @@ end
 
 local function OnActionBarLeave()
   if not AnyActionBarHideEnabled() then return end
-  if not PFH_DB.hoverRevealOutOfCombat then return end
+  if not PFH_DB.actionBarHoverReveal then return end
 
   if state.actionBarHoverHideTimer then
     state.actionBarHoverHideTimer:Cancel()
@@ -1254,7 +1265,7 @@ local function OnActionBarLeave()
 
   state.actionBarHoverHideTimer = C_Timer.NewTimer(delay, function()
     state.actionBarHoverHideTimer = nil
-    if not PFH_DB.hoverRevealOutOfCombat then return end
+    if not PFH_DB.actionBarHoverReveal then return end
     state.actionBarHoverOverride = false
     Apply()
   end)
