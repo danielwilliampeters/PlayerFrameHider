@@ -9,6 +9,10 @@ local DEFAULTS = PFH.DEFAULTS
 -- are updated programmatically.
 local inCallback = false
 
+local ENABLE_ACTION_BARS = false
+local ENABLE_COOLDOWN_ALPHA = false
+local ENABLE_OBJECTIVE_ALPHA = false
+
 -- =========================================================
 -- Settings panel (Blizzard-native vertical Settings layout)
 -- =========================================================
@@ -430,44 +434,55 @@ function PFH.CreateSettingsPanel()
     "Automatically shows the Cooldown Manager when it has active cooldowns, even if you are out of combat and have no target."
   )
 
-  -- AddSlider(
-  --   "cooldownHiddenAlpha",
-  --   "Hidden Opacity",
-  --   "Opacity used when the Cooldown Manager is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-  --   0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
-  -- )
+  if ENABLE_COOLDOWN_ALPHA then
+    AddSlider(
+      "cooldownHiddenAlpha",
+      "Hidden Opacity",
+      "Opacity used when the Cooldown Manager is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+      0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
+    )
+  end
 
-  AddHeader("Action Bars")
+  if ENABLE_ACTION_BARS then
+    AddHeader("Action Bars")
 
-  AddCheckbox(
-    "hideAllActionBars",
-    "Hide Secondary Action Bars",
-    "Hides additional action bars by default.\n\nAction Bar 1 can be controlled separately below."
-  )
+    AddCheckbox(
+      "hideAllActionBars",
+      "Hide Secondary Action Bars",
+      "Hides additional action bars by default.\n\nAction Bar 1 can be controlled separately below."
+    )
 
-  AddCheckbox(
-    "hideActionBar1",
-    "Hide Action Bar 1",
-    "Hides Action Bar 1 by default.\n\nVisibility rules control when it is shown."
-  )
+    AddCheckbox(
+      "hideActionBar1",
+      "Hide Action Bar 1",
+      "Hides Action Bar 1 by default.\n\nVisibility rules control when it is shown."
+    )
 
-  AddCheckbox(
-    "hidePetBar",
-    "Hide Pet Bar",
-    "Hides the Pet Action Bar by default."
-  )
+    AddCheckbox(
+      "hidePetBar",
+      "Hide Pet Bar",
+      "Hides the Pet Action Bar by default."
+    )
 
-  AddCheckbox(
-    "hideStanceBar",
-    "Hide Stance Bar",
-    "Hides the Stance Bar by default."
-  )
+    AddCheckbox(
+      "hideStanceBar",
+      "Hide Stance Bar",
+      "Hides the Stance Bar by default."
+    )
 
-  AddCheckbox(
-    "showActionBar1WhenSkyriding",
-    "Show Action Bar 1 While Flying",
-    "Keeps Action Bar 1 visible while you are flying, even when it would normally be hidden."
-  )
+    AddCheckbox(
+      "showActionBar1WhenSkyriding",
+      "Show Action Bar 1 While Flying",
+      "Keeps Action Bar 1 visible while you are flying, even when it would normally be hidden."
+    )
+
+    AddSlider(
+      "actionHiddenAlpha",
+      "Hidden Opacity",
+      "Opacity used when action bars are hidden.\n\n0% = fully hidden, 100% = fully visible.",
+      0, 1, 0.05, DEFAULTS.actionHiddenAlpha or DEFAULTS.hiddenAlpha
+    )
+  end
 
   AddHeader("Buffs")
 
@@ -498,12 +513,14 @@ function PFH.CreateSettingsPanel()
     "Shows the Objective Tracker when a quest is set as your active waypoint."
   )
 
-  -- AddSlider(
-  --   "objectiveHiddenAlpha",
-  --   "Hidden Opacity",
-  --   "Opacity used when the Objective Tracker is hidden.\n\n0% = fully hidden, 100% = fully visible.",
-  --   0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
-  -- )
+  if ENABLE_OBJECTIVE_ALPHA then
+    AddSlider(
+      "objectiveHiddenAlpha",
+      "Hidden Opacity",
+      "Opacity used when the Objective Tracker is hidden.\n\n0% = fully hidden, 100% = fully visible.",
+      0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
+    )
+  end
 
   return category
 end

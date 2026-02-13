@@ -44,6 +44,7 @@ PFH.DEFAULTS = {
   showCooldownManagerWhenActive = false,
   alwaysShowInInstance = true,
   hiddenAlpha = 0, -- player frame hidden opacity
+  actionHiddenAlpha = 0,
   cooldownHiddenAlpha = 0,
   objectiveHiddenAlpha = 0,
   buffHiddenAlpha = 0,
@@ -52,17 +53,6 @@ PFH.DEFAULTS = {
 -- =========================================================
 -- Constants / State
 -- =========================================================
-
-local function ClampHiddenAlpha(value)
-  if type(value) ~= "number" then
-    return 0
-  elseif value < 0 then
-    return 0
-  elseif value > 1 then
-    return 1
-  end
-  return value
-end
 
 PFH.state = PFH.state or {
   inCombat = false,
@@ -134,27 +124,14 @@ PFH.timers = PFH.timers or {}
 
 local Apply
 
+-- Utility helpers (implemented in Core/Util.lua)
+local ClampHiddenAlpha = PFH.ClampHiddenAlpha
+local ApplyDefault = PFH.ApplyDefault
+local ApplyNumberDefault = PFH.ApplyNumberDefault
+
 -- =========================================================
 -- DB defaults / migration
 -- =========================================================
-
--- Small helpers to keep ApplyDefaults readable
-local function ApplyDefault(key, value)
-  if PFH_DB[key] == nil then
-    PFH_DB[key] = value
-  end
-end
-
-local function ApplyNumberDefault(key, value, minValue)
-  local v = PFH_DB[key]
-  if type(v) ~= "number" then
-    v = value
-  end
-  if minValue ~= nil and v < minValue then
-    v = minValue
-  end
-  PFH_DB[key] = v
-end
 
 function PFH.ApplyDefaults()
   local D = PFH.DEFAULTS
@@ -188,6 +165,10 @@ function PFH.ApplyDefaults()
   ApplyNumberDefault("hurtGraceSeconds", D.hurtGraceSeconds or 0, 0)
   ApplyNumberDefault("hiddenAlpha", D.hiddenAlpha, 0)
   PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
+
+  local defaultActionAlpha = PFH_DB.hiddenAlpha or D.hiddenAlpha or 0
+  ApplyNumberDefault("actionHiddenAlpha", defaultActionAlpha, 0)
+  PFH_DB.actionHiddenAlpha = ClampHiddenAlpha(PFH_DB.actionHiddenAlpha)
 
   local defaultWidgetAlpha = PFH_DB.hiddenAlpha or D.hiddenAlpha or 0
   ApplyNumberDefault("cooldownHiddenAlpha", defaultWidgetAlpha, 0)
@@ -638,84 +619,6 @@ local function ResolveActionBarFrames()
   return frames
 end
 
--- =========================================================
--- Frame resolution (Edit Mode widgets)
--- =========================================================
-
--- Debounced wrapper used specifically for widget HookScript callbacks.
--- This avoids spamming full Apply() calls when Edit Mode widgets are
--- rapidly shown/hidden or otherwise updated in quick succession.
-local widgetApplyScheduled = false
-
-local function ApplyFromWidget()
-  if widgetApplyScheduled then
-    return
-  end
-
-  widgetApplyScheduled = true
-
-  C_Timer.After(0, function()
-    widgetApplyScheduled = false
-
-    -- Use the core Apply routine; it is defined later in this
-    -- file and wired via the forward declaration above.
-    if Apply then
-      Apply()
-    end
-  end)
-end
-
-local function FindFrameByNameHint(hint)
-  for k, v in pairs(_G) do
-    if type(k) == "string" and type(v) == "table" then
-      local ok, isMatch = pcall(function()
-        -- Some global tables are forbidden/restricted and will error
-        -- when indexed; wrap access in pcall so we can safely skip them.
-        if v.GetObjectType and v.IsShown and k:find(hint, 1, true) then
-          return true
-        end
-        return false
-      end)
-
-      if ok and isMatch then
-        return v
-      end
-    end
-  end
-  return nil
-end
-
-local function ResolveWidgetFramesOnce()
-  state.EssentialCDFrame = state.EssentialCDFrame or _G.EssentialCooldownsFrame or FindFrameByNameHint("EssentialCooldown")
-  state.UtilityCDFrame = state.UtilityCDFrame or _G.UtilityCooldownsFrame or _G.UtilityCooldownFrame or _G.UtilityCooldowns or FindFrameByNameHint("UtilityCooldown")
-  state.TrackedBuffsFrame = state.TrackedBuffsFrame or _G.TrackedBuffsFrame or _G.TrackedBuffFrame or _G.TrackedBuffs or FindFrameByNameHint("BuffIconCooldownViewer")
-
-  if not state.widgetFramesHooked then
-    local function HookWidgetFrame(frame)
-      if not frame or frame.PFH_WidgetHooked then return end
-
-      frame.PFH_WidgetHooked = true
-
-      if type(frame.HasScript) == "function" then
-        if frame:HasScript("OnShow") and frame.HookScript then
-          pcall(frame.HookScript, frame, "OnShow", ApplyFromWidget)
-        end
-        if frame:HasScript("OnHide") and frame.HookScript then
-          pcall(frame.HookScript, frame, "OnHide", ApplyFromWidget)
-        end
-      end
-    end
-
-    HookWidgetFrame(state.EssentialCDFrame)
-    HookWidgetFrame(state.UtilityCDFrame)
-    HookWidgetFrame(state.TrackedBuffsFrame)
-
-    if (state.EssentialCDFrame or state.UtilityCDFrame or state.TrackedBuffsFrame) then
-      state.widgetFramesHooked = true
-    end
-  end
-end
-
 local function NeedWidgets()
   return PFH_DB.controlEssentialCooldowns or PFH_DB.controlUtilityCooldowns or PFH_DB.controlTrackedBuffs
 end
@@ -733,7 +636,9 @@ local function ResolveWidgetFramesWithRetries()
   local ticker
   ticker = C_Timer.NewTicker(0.5, function()
     tries = tries + 1
-    ResolveWidgetFramesOnce()
+    if PFH.ResolveWidgetFramesOnce then
+      PFH.ResolveWidgetFramesOnce()
+    end
 
     Apply()
 
@@ -1206,7 +1111,7 @@ end
 local function SetSimpleFrameVisible(frame, wantVisible)
   if not frame or not frame.GetAlpha or not frame.SetAlpha then return end
 
-  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha or 0)
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.actionHiddenAlpha or PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
     if frame:GetAlpha() ~= 1 then
@@ -1622,7 +1527,6 @@ PFH.ShouldShowPetBar = ShouldShowPetBar
 PFH.ShouldShowStanceBar = ShouldShowStanceBar
 PFH.ShouldShowMultiActionBars = ShouldShowMultiActionBars
 
-PFH.ResolveWidgetFramesOnce = ResolveWidgetFramesOnce
 PFH.ResolveWidgetFramesWithRetries = ResolveWidgetFramesWithRetries
 PFH.NeedWidgets = NeedWidgets
 PFH.HaveRequiredWidgets = HaveRequiredWidgets
