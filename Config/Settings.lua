@@ -112,6 +112,14 @@ function PFH.CreateSettingsPanel()
       if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
         PFH.StopHurtTicker()
         state.hurtUntil = 0
+        state.hurtPlayerUntil = 0
+      end
+
+      if key == "showPetWhenHealthBelow100" and not PFH_DB.showPetWhenHealthBelow100 then
+        if not PFH_DB.showWhenHealthBelow100 then
+          PFH.StopHurtTicker()
+        end
+        state.hurtPetUntil = 0
       end
 
       if key == "hoverRevealOutOfCombat" and not PFH_DB.hoverRevealOutOfCombat then
@@ -461,6 +469,20 @@ function PFH.CreateSettingsPanel()
       0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
     )
   end
+
+  AddHeader("Pet Frame")
+
+  AddCheckbox(
+    "hidePetFrame",
+    "Hide Pet Frame",
+    "Hides the Blizzard Pet Frame by default.\n\nShows again based on your display rules (combat/target)."
+  )
+
+  AddCheckbox(
+    "showPetWhenHealthBelow100",
+    "Show Pet Frame on Health Change",
+    "Temporarily show the Pet Frame when your pet's health changes."
+  )
 
   AddHeader("Buffs")
 

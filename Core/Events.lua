@@ -70,6 +70,7 @@ local function OnRegenEnabled()
   -- Treat as in-combat for the "before" snapshot.
   state.inCombat = true
   local prevShowPlayer = PFH.ShouldShowPlayerFrame()
+  local prevShowPet = PFH.ShouldShowPetFrame and PFH.ShouldShowPetFrame() or false
   local prevShowWidgets = PFH.ShouldShowWidgets()
 
   -- Now mark as out of combat and clear any existing holds.
@@ -82,7 +83,7 @@ local function OnRegenEnabled()
   end
 
   if PFH.ScheduleHold and holdSeconds > 0 then
-    if prevShowPlayer then
+    if prevShowPlayer or prevShowPet then
       PFH.ScheduleHold("player", holdSeconds)
     end
     if prevShowWidgets then
@@ -99,13 +100,21 @@ local function OnTargetOrZoneChanged()
   PFH.Apply()
 end
 
-local function OnPlayerHealthChanged(unit)
-  if unit ~= "player" then return end
-  if PFH_DB.showWhenHealthBelow100 then
-    PFH.MarkHurt()
-    PFH.EnsureHurtTicker()
+local function OnUnitHealthChanged(unit)
+  local affected = false
+
+  if unit == "player" and PFH_DB.showWhenHealthBelow100 then
+    PFH.MarkHurt("player")
+    affected = true
+  elseif unit == "pet" and PFH_DB.showPetWhenHealthBelow100 then
+    PFH.MarkHurt("pet")
+    affected = true
   end
-  PFH.Apply()
+
+  if affected then
+    PFH.EnsureHurtTicker()
+    PFH.Apply()
+  end
 end
 
 local function OnObjectiveTrackerChanged()
@@ -160,7 +169,7 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
     or event == "UNIT_ABSORB_AMOUNT_CHANGED"
     or event == "UNIT_HEAL_PREDICTION"
   then
-    OnPlayerHealthChanged(unit)
+    OnUnitHealthChanged(unit)
     return
   end
 

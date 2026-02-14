@@ -19,6 +19,7 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
+  hidePetFrame = false,
   hideActionBar1 = false,
   hideActionBar2 = false,
   hideActionBar3 = false,
@@ -42,6 +43,7 @@ PFH.DEFAULTS = {
   combatHoldSeconds = 3,
   showTargetMode = 1,
   showWhenHealthBelow100 = true,
+  showPetWhenHealthBelow100 = false,
   hoverRevealOutOfCombat = true,
   controlEssentialCooldowns = false,
   controlUtilityCooldowns = false,
@@ -68,6 +70,8 @@ PFH.state = PFH.state or {
 
   -- grace window after health-related events
   hurtUntil = 0,
+  hurtPlayerUntil = 0,
+  hurtPetUntil = 0,
   hurtTicker = nil,
 
   -- init / hooks
@@ -137,6 +141,7 @@ local Apply
 local ClampHiddenAlpha = PFH.ClampHiddenAlpha
 local ApplyDefault = PFH.ApplyDefault
 local ApplyNumberDefault = PFH.ApplyNumberDefault
+local NormalizeSeconds = PFH.NormalizeSeconds
 
 -- =========================================================
 -- DB defaults / migration
@@ -159,6 +164,8 @@ function PFH.ApplyDefaults()
   ApplyDefault("showInCombat", D.showInCombat)
   ApplyDefault("showTargetMode", D.showTargetMode)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
+  ApplyDefault("hidePetFrame", D.hidePetFrame)
+  ApplyDefault("showPetWhenHealthBelow100", D.showPetWhenHealthBelow100)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
   ApplyDefault("objectiveHoverReveal", D.objectiveHoverReveal)
   ApplyDefault("buffHoverReveal", D.buffHoverReveal)
@@ -243,10 +250,17 @@ function PFH.SetCooldownMode(mode)
   PFH_DB.controlTrackedBuffs       = (m >= 3)
 end
 
-local function MarkHurt()
-  local seconds = tonumber(PFH_DB.hurtGraceSeconds) or PFH.DEFAULTS.hurtGraceSeconds or 0
-  if seconds < 0 then seconds = 0 end
-  state.hurtUntil = GetTime() + seconds
+local function MarkHurt(which)
+  local defaultSeconds = PFH.DEFAULTS.hurtGraceSeconds or 0
+  local seconds = NormalizeSeconds(PFH_DB.hurtGraceSeconds, defaultSeconds, 0)
+  local untilTime = GetTime() + seconds
+
+  if which == "pet" then
+    state.hurtPetUntil = untilTime
+  else
+    state.hurtUntil = untilTime
+    state.hurtPlayerUntil = untilTime
+  end
 end
 
 local function ShouldShowPlayerFrame()
@@ -261,13 +275,38 @@ local function ShouldShowPlayerFrame()
 
   if PFH_DB.showInCombat and PFH.IsInCombat() then return true end
   if PFH.HasTargetLike() then return true end
-  if PFH_DB.showWhenHealthBelow100 and GetTime() < state.hurtUntil then return true end
+  local hurtUntil = state.hurtPlayerUntil or state.hurtUntil or 0
+  if PFH_DB.showWhenHealthBelow100 and GetTime() < hurtUntil then return true end
 
   if PFH_DB.hoverRevealOutOfCombat and state.hoverOverride and not PFH.IsInCombat() then
     return true
   end
 
   -- During a combat-hold window, keep the frame visible
+  if state.combatHoldPlayer then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowPetFrame()
+  if not PFH_DB.enabled then
+    return true -- addon disabled => do not hide anything
+  end
+
+  if PFH.IsAlwaysShowInstance() then return true end
+
+  -- if not hiding at all, always show
+  if not PFH_DB.hidePetFrame then return true end
+
+  if PFH_DB.showInCombat and PFH.IsInCombat() then return true end
+  if PFH.HasTargetLike() then return true end
+
+  local hurtUntil = state.hurtPetUntil or 0
+  if PFH_DB.showPetWhenHealthBelow100 and GetTime() < hurtUntil then return true end
+
+  -- During a combat-hold window for unit frames, keep the frame visible
   if state.combatHoldPlayer then
     return true
   end
@@ -377,26 +416,13 @@ local function AreWidgetsActive()
   return false
 end
 
-local function IsVehicleActionBarActive()
-  -- Prefer the dedicated vehicle APIs when available.
-  if HasVehicleActionBar and HasVehicleActionBar() then
-    return true
-  end
-
-  if UnitHasVehicleUI and UnitHasVehicleUI("player") then
-    return true
-  end
-
-  return false
-end
-
 local function ShouldShowWidgets()
   if not PFH_DB.enabled then
     return true -- addon disabled => do not hide widgets
   end
 
   -- Never show the cooldown manager while the vehicle action bar is active.
-  if IsVehicleActionBarActive() then
+  if PFH.IsVehicleActionBarActive and PFH.IsVehicleActionBarActive() then
     return false
   end
 
@@ -422,30 +448,18 @@ local function ShouldShowWidgets()
 end
 
 local function GetObjectiveHoverHideDelay()
-  local v = PFH_DB.objectiveHoverHideDelay
-  if type(v) ~= "number" then
-    v = PFH.DEFAULTS.objectiveHoverHideDelay or 1.0
-  end
-  if v < 0 then v = 0 end
-  return v
+  local defaultSeconds = PFH.DEFAULTS.objectiveHoverHideDelay or 1.0
+  return NormalizeSeconds(PFH_DB.objectiveHoverHideDelay, defaultSeconds, 0)
 end
 
 local function GetBuffHoverHideDelay()
-  local v = PFH_DB.buffHoverHideDelay
-  if type(v) ~= "number" then
-    v = PFH.DEFAULTS.buffHoverHideDelay or 5.0
-  end
-  if v < 0 then v = 0 end
-  return v
+  local defaultSeconds = PFH.DEFAULTS.buffHoverHideDelay or 5.0
+  return NormalizeSeconds(PFH_DB.buffHoverHideDelay, defaultSeconds, 0)
 end
 
 local function GetPlayerHoverHideDelay()
-  local v = PFH_DB.playerHoverHideDelay
-  if type(v) ~= "number" then
-    v = PFH.DEFAULTS.playerHoverHideDelay or 3.0
-  end
-  if v < 0 then v = 0 end
-  return v
+  local defaultSeconds = PFH.DEFAULTS.playerHoverHideDelay or 3.0
+  return NormalizeSeconds(PFH_DB.playerHoverHideDelay, defaultSeconds, 0)
 end
 
 -- Skyriding detection is implemented in Core/Util.lua as PFH.IsSkyRidingLike.
@@ -1095,6 +1109,19 @@ local function SetPlayerFrameVisible(wantVisible)
   end
 end
 
+local function SetPetFrameVisible(wantVisible)
+  local frame = _G.PetFrame
+  if not frame or not frame.GetAlpha or not frame.SetAlpha then return end
+
+  local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha or 0)
+
+  if wantVisible then
+    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+  else
+    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
+  end
+end
+
 local function SetBuffFrameVisible(wantVisible)
   local frame = GetBuffFrame()
   if not frame then return end
@@ -1316,6 +1343,7 @@ Apply = function()
   if not PlayerFrame then return end
 
   SetPlayerFrameVisible(ShouldShowPlayerFrame())
+  SetPetFrameVisible(ShouldShowPetFrame())
   SetObjectiveTrackerVisible(ShouldShowObjectiveTracker())
   SetBuffFrameVisible(ShouldShowBuffFrame())
   ApplyActionBars()
@@ -1348,7 +1376,7 @@ local function CancelHold(which)
 end
 
 local function ScheduleHold(which, seconds)
-  local duration = tonumber(seconds) or 0
+  local duration = NormalizeSeconds(seconds, 0, 0)
   if duration <= 0 then
     CancelHold(which)
     return
@@ -1397,9 +1425,15 @@ local function EnsureHurtTicker()
   state.hurtTicker = C_Timer.NewTicker(0.2, function()
     Apply()
 
-    local expired = GetTime() >= state.hurtUntil
-    local disabled = not PFH_DB.showWhenHealthBelow100
-    if expired or disabled then
+    local now = GetTime()
+
+    local playerEnabled = PFH_DB.showWhenHealthBelow100 and true or false
+    local petEnabled = PFH_DB.showPetWhenHealthBelow100 and true or false
+
+    local playerExpired = (not playerEnabled) or (now >= (state.hurtPlayerUntil or state.hurtUntil or 0))
+    local petExpired = (not petEnabled) or (now >= (state.hurtPetUntil or 0))
+
+    if playerExpired and petExpired then
       StopHurtTicker()
     end
   end)
@@ -1524,6 +1558,7 @@ PFH.EnsureCooldownWatcher = EnsureCooldownWatcher
 PFH.StopCooldownWatcher = StopCooldownWatcher
 
 PFH.ShouldShowPlayerFrame = ShouldShowPlayerFrame
+PFH.ShouldShowPetFrame = ShouldShowPetFrame
 PFH.ShouldShowWidgets = ShouldShowWidgets
 PFH.ShouldShowBuffFrame = ShouldShowBuffFrame
 PFH.ShouldShowActionBar1 = ShouldShowActionBar1

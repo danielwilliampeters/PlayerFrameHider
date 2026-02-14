@@ -37,6 +37,31 @@ function PFH.ApplyNumberDefault(key, value, minValue)
   PFH_DB[key] = v
 end
 
+-- Normalize a duration in seconds using an optional default and minimum.
+-- Returns a non-negative number (or the provided minimum) suitable for
+-- use with timers and delay settings.
+function PFH.NormalizeSeconds(value, defaultValue, minValue)
+  local v = tonumber(value)
+
+  if v == nil then
+    v = defaultValue
+  end
+
+  if type(v) ~= "number" then
+    v = 0
+  end
+
+  if minValue == nil then
+    minValue = 0
+  end
+
+  if v < minValue then
+    v = minValue
+  end
+
+  return v
+end
+
 -- Return true if the player is in combat.
 function PFH.IsInCombat()
   return (PFH.state and PFH.state.inCombat)
@@ -126,6 +151,20 @@ function PFH.IsSkyRidingLike()
     if okFlying and flying then
       return true
     end
+  end
+
+  return false
+end
+
+-- Return true if a vehicle-style action bar is currently active.
+function PFH.IsVehicleActionBarActive()
+  -- Prefer the dedicated vehicle APIs when available.
+  if HasVehicleActionBar and HasVehicleActionBar() then
+    return true
+  end
+
+  if UnitHasVehicleUI and UnitHasVehicleUI("player") then
+    return true
   end
 
   return false
