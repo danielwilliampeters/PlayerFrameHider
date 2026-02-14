@@ -249,68 +249,21 @@ local function MarkHurt()
   state.hurtUntil = GetTime() + seconds
 end
 
-local function IsRelevantInstance()
-  local inInstance, instanceType = IsInInstance()
-  if inInstance then
-    if instanceType == "party"
-      or instanceType == "raid"
-      or instanceType == "pvp"
-      or instanceType == "arena"
-      or instanceType == "scenario"
-      or instanceType == "delve" then
-      return true
-    end
-  end
-
-  if C_Scenario and C_Scenario.IsInScenario and C_Scenario.IsInScenario() then
-    return true
-  end
-
-  return false
-end
-
-local function IsAlwaysShowInstance()
-  if not PFH_DB.alwaysShowInInstance then return false end
-  return IsRelevantInstance()
-end
-
-local function IsInCombat()
-  return state.inCombat or (UnitAffectingCombat("player") and true or false)
-end
-
-local function HasEnemyTarget()
-  return UnitExists("target") and UnitCanAttack("player", "target")
-end
-
-local function HasTargetLike()
-  local mode = tonumber(PFH_DB.showTargetMode) or 0
-
-  if (mode == 1 or mode == 3) and UnitExists("target") then
-    return true
-  end
-
-  if (mode == 2 or mode == 3) and UnitExists("softenemy") then
-    return true
-  end
-
-  return false
-end
-
 local function ShouldShowPlayerFrame()
   if not PFH_DB.enabled then
     return true -- addon disabled => do not hide anything
   end
 
-  if IsAlwaysShowInstance() then return true end
+  if PFH.IsAlwaysShowInstance() then return true end
 
   -- if not hiding at all, always show
   if not PFH_DB.hidePlayerFrame then return true end
 
-  if PFH_DB.showInCombat and IsInCombat() then return true end
-  if HasTargetLike() then return true end
+  if PFH_DB.showInCombat and PFH.IsInCombat() then return true end
+  if PFH.HasTargetLike() then return true end
   if PFH_DB.showWhenHealthBelow100 and GetTime() < state.hurtUntil then return true end
 
-  if PFH_DB.hoverRevealOutOfCombat and state.hoverOverride and not IsInCombat() then
+  if PFH_DB.hoverRevealOutOfCombat and state.hoverOverride and not PFH.IsInCombat() then
     return true
   end
 
@@ -429,7 +382,7 @@ local function ShouldShowWidgets()
     return true -- addon disabled => do not hide widgets
   end
 
-  if IsAlwaysShowInstance() then return true end
+  if PFH.IsAlwaysShowInstance() then return true end
 
   if state.combatHoldWidgets then
     return true
@@ -437,7 +390,7 @@ local function ShouldShowWidgets()
 
   -- Mirror player frame rules for target/soft-target visibility so that
   -- the "Show with Target" setting is respected for widgets as well.
-  if IsInCombat() or HasTargetLike() then
+  if PFH.IsInCombat() or PFH.HasTargetLike() then
     return true
   end
 
@@ -477,31 +430,7 @@ local function GetPlayerHoverHideDelay()
   return v
 end
 
-local function IsSkyRidingLike()
-  -- Skyriding Vigor power bar (AlternateMount).
-  if Enum and Enum.PowerType and Enum.PowerType.AlternateMount and UnitPowerMax then
-    local okVigor, maxVigor = pcall(UnitPowerMax, "player", Enum.PowerType.AlternateMount)
-    if okVigor and type(maxVigor) == "number" and maxVigor > 0 then
-      return true
-    end
-  end
-
-  -- Fallback: mounted and actually flying (pre-Dragonflight clients or edge cases).
-  if not IsMounted then return false end
-  local okMounted, mounted = pcall(IsMounted)
-  if not okMounted or not mounted then
-    return false
-  end
-
-  if IsFlying then
-    local okFlying, flying = pcall(IsFlying)
-    if okFlying and flying then
-      return true
-    end
-  end
-
-  return false
-end
+-- Skyriding detection is implemented in Core/Util.lua as PFH.IsSkyRidingLike.
 
 -- =========================================================
 -- Buff frame helpers
@@ -702,7 +631,7 @@ local function BaseShouldShowObjectiveTracker()
     return true
   end
 
-  if IsAlwaysShowInstance() then
+  if PFH.IsAlwaysShowInstance() then
     return true
   end
 
@@ -728,7 +657,7 @@ local function ShouldShowBuffFrame()
     return true
   end
 
-  if IsAlwaysShowInstance() then
+  if PFH.IsAlwaysShowInstance() then
     return true
   end
 
@@ -769,7 +698,7 @@ local function ShouldShowActionBar1()
 
   -- When skyriding and the option is enabled, temporarily treat Bar 1
   -- as not hidden so it behaves like a normal, always-visible bar.
-  if hideThis and PFH_DB.showActionBar1WhenSkyriding and IsSkyRidingLike() then
+  if hideThis and PFH_DB.showActionBar1WhenSkyriding and PFH.IsSkyRidingLike() then
     hideThis = false
   end
 
@@ -1004,7 +933,7 @@ local function OnBuffFrameEnter()
   if not PFH_DB.enabled then return end
   if not PFH_DB.hideBuffFrame then return end
   if not PFH_DB.buffHoverReveal then return end
-  if IsInCombat() then return end
+  if PFH.IsInCombat() then return end
 
   if state.buffHoverHideTimer then
     state.buffHoverHideTimer:Cancel()
@@ -1035,7 +964,7 @@ local function OnBuffFrameLeave()
   state.buffHoverHideTimer = C_Timer.NewTimer(delay, function()
     state.buffHoverHideTimer = nil
     if not PFH_DB.buffHoverReveal then return end
-    if IsInCombat() then return end
+    if PFH.IsInCombat() then return end
     state.buffHoverOverride = false
     Apply()
   end)
@@ -1241,7 +1170,7 @@ local function OnPlayerFrameEnter()
   if not PFH_DB.enabled then return end
   if not PFH_DB.hidePlayerFrame then return end
   if not PFH_DB.hoverRevealOutOfCombat then return end
-  if IsInCombat() then return end
+  if PFH.IsInCombat() then return end
   if state.hoverHideTimer then
     state.hoverHideTimer:Cancel()
     state.hoverHideTimer = nil
@@ -1268,7 +1197,7 @@ local function OnPlayerFrameLeave()
   state.hoverHideTimer = C_Timer.NewTimer(delay, function()
     state.hoverHideTimer = nil
     if not PFH_DB.hoverRevealOutOfCombat then return end
-    if IsInCombat() then return end
+    if PFH.IsInCombat() then return end
     state.hoverOverride = false
     Apply()
   end)
@@ -1576,17 +1505,12 @@ PFH.StopHurtTicker = StopHurtTicker
 PFH.EnsureCooldownWatcher = EnsureCooldownWatcher
 PFH.StopCooldownWatcher = StopCooldownWatcher
 
-PFH.IsAlwaysShowInstance = IsAlwaysShowInstance
-PFH.IsInCombat = IsInCombat
-PFH.HasEnemyTarget = HasEnemyTarget
-PFH.HasTargetLike = HasTargetLike
 PFH.ShouldShowPlayerFrame = ShouldShowPlayerFrame
 PFH.ShouldShowWidgets = ShouldShowWidgets
 PFH.ShouldShowBuffFrame = ShouldShowBuffFrame
 PFH.ShouldShowActionBar1 = ShouldShowActionBar1
 PFH.ShouldShowPetBar = ShouldShowPetBar
 PFH.ShouldShowStanceBar = ShouldShowStanceBar
-PFH.ShouldShowMultiActionBars = ShouldShowMultiActionBars
 
 PFH.ResolveWidgetFramesWithRetries = ResolveWidgetFramesWithRetries
 PFH.NeedWidgets = NeedWidgets

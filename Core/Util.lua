@@ -36,3 +36,97 @@ function PFH.ApplyNumberDefault(key, value, minValue)
   end
   PFH_DB[key] = v
 end
+
+-- Return true if the player is in combat.
+function PFH.IsInCombat()
+  return (PFH.state and PFH.state.inCombat)
+    or (UnitAffectingCombat and UnitAffectingCombat("player") and true or false)
+end
+
+-- Return true if the player currently has an enemy target.
+function PFH.HasEnemyTarget()
+  return UnitExists and UnitExists("target") and UnitCanAttack and UnitCanAttack("player", "target")
+end
+
+-- Return true if there is any "target-like" unit, based on showTargetMode.
+function PFH.HasTargetLike()
+  if not PFH_DB then return false end
+
+  local mode = tonumber(PFH_DB.showTargetMode) or 0
+
+  if (mode == 1 or mode == 3) and UnitExists and UnitExists("target") then
+    return true
+  end
+
+  if (mode == 2 or mode == 3) and UnitExists and UnitExists("softenemy") then
+    return true
+  end
+
+  return false
+end
+
+-- Return true if the current instance/zone is one where the
+-- addon should treat "always show in instance" as relevant.
+function PFH.IsRelevantInstance()
+  if not IsInInstance then
+    return false
+  end
+
+  local inInstance, instanceType = IsInInstance()
+  if inInstance then
+    if instanceType == "party"
+      or instanceType == "raid"
+      or instanceType == "pvp"
+      or instanceType == "arena"
+      or instanceType == "scenario"
+      or instanceType == "delve" then
+      return true
+    end
+  end
+
+  if C_Scenario and C_Scenario.IsInScenario and C_Scenario.IsInScenario() then
+    return true
+  end
+
+  return false
+end
+
+-- Return true if "alwaysShowInInstance" is enabled and the
+-- player is currently in a relevant instance.
+function PFH.IsAlwaysShowInstance()
+  if not PFH_DB or not PFH_DB.alwaysShowInInstance then
+    return false
+  end
+  return PFH.IsRelevantInstance()
+end
+
+-- Return true if the player is in a Skyriding/Dragonriding-like
+-- state, based primarily on the Vigor (AlternateMount) power bar.
+function PFH.IsSkyRidingLike()
+  -- Skyriding Vigor power bar (AlternateMount).
+  if Enum and Enum.PowerType and Enum.PowerType.AlternateMount and UnitPowerMax then
+    local okVigor, maxVigor = pcall(UnitPowerMax, "player", Enum.PowerType.AlternateMount)
+    if okVigor and type(maxVigor) == "number" and maxVigor > 0 then
+      return true
+    end
+  end
+
+  -- Fallback: mounted and actually flying (pre-Dragonflight clients or edge cases).
+  if not IsMounted then
+    return false
+  end
+
+  local okMounted, mounted = pcall(IsMounted)
+  if not okMounted or not mounted then
+    return false
+  end
+
+  if IsFlying then
+    local okFlying, flying = pcall(IsFlying)
+    if okFlying and flying then
+      return true
+    end
+  end
+
+  return false
+end
