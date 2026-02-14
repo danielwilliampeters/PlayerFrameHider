@@ -534,9 +534,45 @@ function PFH.CreateSettingsPanel()
     )
 
     AddCheckbox(
-      "hideAllActionBars",
-      "Hide Secondary Action Bars",
-      "Hides all other action bars by default. Shown on mouseover."
+      "hideActionBar2",
+      "Hide Action Bar 2",
+      "Hides Action Bar 2 by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideActionBar3",
+      "Hide Action Bar 3",
+      "Hides Action Bar 3 by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideActionBar4",
+      "Hide Action Bar 4",
+      "Hides Action Bar 4 by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideActionBar5",
+      "Hide Action Bar 5",
+      "Hides Action Bar 5 by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideActionBar6",
+      "Hide Action Bar 6",
+      "Hides Action Bar 6 by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideActionBar7",
+      "Hide Action Bar 7",
+      "Hides Action Bar 7 by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideActionBar8",
+      "Hide Action Bar 8",
+      "Hides Action Bar 8 by default. Shown on mouseover."
     )
 
     AddCheckbox(

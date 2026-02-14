@@ -19,8 +19,14 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
-  hideAllActionBars = false,
   hideActionBar1 = false,
+  hideActionBar2 = false,
+  hideActionBar3 = false,
+  hideActionBar4 = false,
+  hideActionBar5 = false,
+  hideActionBar6 = false,
+  hideActionBar7 = false,
+  hideActionBar8 = false,
   hidePetBar = false,
   hideStanceBar = false,
   showActionBar1WhenSkyriding = false,
@@ -157,8 +163,14 @@ function PFH.ApplyDefaults()
   ApplyDefault("objectiveHoverReveal", D.objectiveHoverReveal)
   ApplyDefault("buffHoverReveal", D.buffHoverReveal)
   ApplyDefault("actionBarHoverReveal", D.actionBarHoverReveal)
-  ApplyDefault("hideAllActionBars", D.hideAllActionBars)
   ApplyDefault("hideActionBar1", D.hideActionBar1)
+  ApplyDefault("hideActionBar2", D.hideActionBar2)
+  ApplyDefault("hideActionBar3", D.hideActionBar3)
+  ApplyDefault("hideActionBar4", D.hideActionBar4)
+  ApplyDefault("hideActionBar5", D.hideActionBar5)
+  ApplyDefault("hideActionBar6", D.hideActionBar6)
+  ApplyDefault("hideActionBar7", D.hideActionBar7)
+  ApplyDefault("hideActionBar8", D.hideActionBar8)
   ApplyDefault("hidePetBar", D.hidePetBar)
   ApplyDefault("hideStanceBar", D.hideStanceBar)
   ApplyDefault("showActionBar1WhenSkyriding", D.showActionBar1WhenSkyriding)
@@ -208,6 +220,8 @@ function PFH.ApplyDefaults()
     PFH_DB.cooldownDisplayMode = D.cooldownDisplayMode or 0
   end
   PFH.SetCooldownMode(PFH_DB.cooldownDisplayMode)
+  -- ensure legacy hideAllActionBars flag is cleared from saved variables
+  PFH_DB.hideAllActionBars = nil
 end
 
 -- =========================================================
@@ -541,20 +555,20 @@ local function ResolveActionBarFrames()
     AddActionBarFrame(frames, bar1, "bar1")
   end
 
-  -- Common multi-bars (treated as a single "multi" kind)
-  local multiNames = {
-    "MultiBarBottomLeft",
-    "MultiBarBottomRight",
-    "MultiBarLeft",
-    "MultiBarRight",
-    "MultiBar5",
-    "MultiBar6",
-    "MultiBar7",
+  -- Individual multi-bars mapped to Edit Mode action bar numbers
+  local multiBars = {
+    { name = "MultiBarBottomLeft", kind = "bar2" },
+    { name = "MultiBarBottomRight", kind = "bar3" },
+    { name = "MultiBarRight", kind = "bar4" },
+    { name = "MultiBarLeft", kind = "bar5" },
+    { name = "MultiBar5", kind = "bar6" },
+    { name = "MultiBar6", kind = "bar7" },
+    { name = "MultiBar7", kind = "bar8" },
   }
-  for _, name in ipairs(multiNames) do
-    local f = _G[name]
+  for _, info in ipairs(multiBars) do
+    local f = _G[info.name]
     if f and f.GetAlpha then
-      AddActionBarFrame(frames, f, "multi")
+      AddActionBarFrame(frames, f, info.kind)
     end
   end
 
@@ -572,8 +586,6 @@ local function ResolveActionBarFrames()
     AddActionBarFrame(frames, stance, "stance")
   end
 
-  -- Individual buttons for broader coverage (helps both alpha-hide and hover).
-
   -- Action Bar 1 buttons
   for i = 1, 12 do
     local btn = _G["ActionButton" .. i]
@@ -582,21 +594,21 @@ local function ResolveActionBarFrames()
     end
   end
 
-  -- Multi-bar buttons
+  -- Multi-bar buttons mapped to the corresponding action bar number
   local multiButtonPrefixes = {
-    "MultiBarBottomLeftButton",
-    "MultiBarBottomRightButton",
-    "MultiBarLeftButton",
-    "MultiBarRightButton",
-    "MultiBar5Button",
-    "MultiBar6Button",
-    "MultiBar7Button",
+    { prefix = "MultiBarBottomLeftButton", kind = "bar2" },
+    { prefix = "MultiBarBottomRightButton", kind = "bar3" },
+    { prefix = "MultiBarRightButton", kind = "bar4" },
+    { prefix = "MultiBarLeftButton", kind = "bar5" },
+    { prefix = "MultiBar5Button", kind = "bar6" },
+    { prefix = "MultiBar6Button", kind = "bar7" },
+    { prefix = "MultiBar7Button", kind = "bar8" },
   }
-  for _, prefix in ipairs(multiButtonPrefixes) do
+  for _, info in ipairs(multiButtonPrefixes) do
     for i = 1, 12 do
-      local btn = _G[prefix .. i]
+      local btn = _G[info.prefix .. i]
       if btn and btn.GetAlpha and btn.SetAlpha then
-        AddActionBarFrame(frames, btn, "multi")
+        AddActionBarFrame(frames, btn, info.kind)
       end
     end
   end
@@ -736,8 +748,14 @@ local function ShouldShowBuffFrame()
 end
 
 local function AnyActionBarHideEnabled()
-  return PFH_DB.hideAllActionBars
-    or PFH_DB.hideActionBar1
+  return PFH_DB.hideActionBar1
+    or PFH_DB.hideActionBar2
+    or PFH_DB.hideActionBar3
+    or PFH_DB.hideActionBar4
+    or PFH_DB.hideActionBar5
+    or PFH_DB.hideActionBar6
+    or PFH_DB.hideActionBar7
+    or PFH_DB.hideActionBar8
     or PFH_DB.hidePetBar
     or PFH_DB.hideStanceBar
 end
@@ -746,7 +764,7 @@ local function ShouldShowActionBar1()
   if not PFH_DB.enabled then
     return true
   end
-  -- Base hide flag for Bar 1 (independent of global hideAllActionBars).
+  -- Base hide flag for Bar 1.
   local hideThis = PFH_DB.hideActionBar1 and true or false
 
   -- When skyriding and the option is enabled, temporarily treat Bar 1
@@ -768,6 +786,52 @@ local function ShouldShowActionBar1()
   end
 
   return false
+end
+
+local function ShouldShowGenericActionBar(hideKey)
+  if not PFH_DB.enabled then
+    return true
+  end
+
+  local hideThis = PFH_DB[hideKey] and true or false
+
+  if not hideThis then
+    return true
+  end
+
+  if PFH_DB.actionBarHoverReveal and state.actionBarHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowActionBar2()
+  return ShouldShowGenericActionBar("hideActionBar2")
+end
+
+local function ShouldShowActionBar3()
+  return ShouldShowGenericActionBar("hideActionBar3")
+end
+
+local function ShouldShowActionBar4()
+  return ShouldShowGenericActionBar("hideActionBar4")
+end
+
+local function ShouldShowActionBar5()
+  return ShouldShowGenericActionBar("hideActionBar5")
+end
+
+local function ShouldShowActionBar6()
+  return ShouldShowGenericActionBar("hideActionBar6")
+end
+
+local function ShouldShowActionBar7()
+  return ShouldShowGenericActionBar("hideActionBar7")
+end
+
+local function ShouldShowActionBar8()
+  return ShouldShowGenericActionBar("hideActionBar8")
 end
 
 local function ShouldShowPetBar()
@@ -794,24 +858,6 @@ local function ShouldShowStanceBar()
   end
 
   local hideThis = PFH_DB.hideStanceBar and true or false
-
-  if not hideThis then
-    return true
-  end
-
-  if PFH_DB.actionBarHoverReveal and state.actionBarHoverOverride then
-    return true
-  end
-
-  return false
-end
-
-local function ShouldShowMultiActionBars()
-  if not PFH_DB.enabled then
-    return true
-  end
-
-  local hideThis = PFH_DB.hideAllActionBars and true or false
 
   if not hideThis then
     return true
@@ -1292,12 +1338,24 @@ local function ApplyActionBars()
     local wantVisible = true
     if info.kind == "bar1" then
       wantVisible = ShouldShowActionBar1()
+    elseif info.kind == "bar2" then
+      wantVisible = ShouldShowActionBar2()
+    elseif info.kind == "bar3" then
+      wantVisible = ShouldShowActionBar3()
+    elseif info.kind == "bar4" then
+      wantVisible = ShouldShowActionBar4()
+    elseif info.kind == "bar5" then
+      wantVisible = ShouldShowActionBar5()
+    elseif info.kind == "bar6" then
+      wantVisible = ShouldShowActionBar6()
+    elseif info.kind == "bar7" then
+      wantVisible = ShouldShowActionBar7()
+    elseif info.kind == "bar8" then
+      wantVisible = ShouldShowActionBar8()
     elseif info.kind == "pet" then
       wantVisible = ShouldShowPetBar()
     elseif info.kind == "stance" then
       wantVisible = ShouldShowStanceBar()
-    else
-      wantVisible = ShouldShowMultiActionBars()
     end
     SetSimpleFrameVisible(info.frame, wantVisible)
   end
