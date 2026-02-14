@@ -5,9 +5,9 @@
 ## Version: 4
 ## SavedVariables: PFH_DB
 ## Category: Unit Frames
-## IconTexture: Interface\AddOns\PlayerFrameHider\Assets\Icons\icon.tga
+## IconTexture: Interface\AddOns\PlayerFrameHider\Assets\Icons\icon
 ## AddonCompartmentFunc: PlayerFrameHider_OpenSettings
-## AddonCompartmentIcon: Interface\AddOns\PlayerFrameHider\Assets\Icons\icon.tga
+## AddonCompartmentIcon: Interface\AddOns\PlayerFrameHider\Assets\Icons\icon
 
 Core/Util.lua
 Core/Frames.lua

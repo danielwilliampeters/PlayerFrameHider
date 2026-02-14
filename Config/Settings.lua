@@ -522,27 +522,33 @@ function PFH.CreateSettingsPanel()
     AddHeader("Action Bars")
 
     AddCheckbox(
-      "hideAllActionBars",
-      "Hide Secondary Action Bars",
-      "Hides additional action bars by default.\n\nAction Bar 1 can be controlled separately below."
+      "hideActionBar1",
+      "Hide Action Bar 1",
+      "Hides Action Bar 1 by default. Shown on mouseover."
     )
 
     AddCheckbox(
-      "hideActionBar1",
-      "Hide Action Bar 1",
-      "Hides Action Bar 1 by default.\n\nVisibility rules control when it is shown."
+      "showActionBar1WhenSkyriding",
+      "Show While Skyriding",
+      "Keeps Action Bar 1 visible while Skyriding."
+    )
+
+    AddCheckbox(
+      "hideAllActionBars",
+      "Hide Secondary Action Bars",
+      "Hides all other action bars by default. Shown on mouseover."
     )
 
     AddCheckbox(
       "hidePetBar",
       "Hide Pet Bar",
-      "Hides the Pet Action Bar by default."
+      "Hides the Pet Action Bar by default. Shown on mouseover."
     )
 
     AddCheckbox(
       "hideStanceBar",
       "Hide Stance Bar",
-      "Hides the Stance Bar by default."
+      "Hides the Stance Bar by default. Shown on mouseover."
     )
 
     if ENABLE_HOVER_REVEAL_ACTION_BARS then
@@ -552,12 +558,6 @@ function PFH.CreateSettingsPanel()
         "When action bars are hidden, hovering over them temporarily reveals them."
       )
     end
-
-    AddCheckbox(
-      "showActionBar1WhenSkyriding",
-      "Show Action Bar 1 While Flying",
-      "Keeps Action Bar 1 visible while you are flying, even when it would normally be hidden."
-    )
 
     if ENABLE_ACTION_BARS_ALPHA then
       AddSlider(

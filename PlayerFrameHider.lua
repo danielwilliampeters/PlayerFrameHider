@@ -464,25 +464,21 @@ local function GetPlayerHoverHideDelay()
 end
 
 local function IsSkyRidingLike()
+  -- Skyriding Vigor power bar (AlternateMount).
+  if Enum and Enum.PowerType and Enum.PowerType.AlternateMount and UnitPowerMax then
+    local okVigor, maxVigor = pcall(UnitPowerMax, "player", Enum.PowerType.AlternateMount)
+    if okVigor and type(maxVigor) == "number" and maxVigor > 0 then
+      return true
+    end
+  end
+
+  -- Fallback: mounted and actually flying (pre-Dragonflight clients or edge cases).
   if not IsMounted then return false end
   local okMounted, mounted = pcall(IsMounted)
   if not okMounted or not mounted then
     return false
   end
 
-  -- Prefer the real "Skyriding/Dragonriding" signals when available
-  if C_PlayerInfo then
-    if C_PlayerInfo.IsPlayerInSkyriding then
-      local ok, v = pcall(C_PlayerInfo.IsPlayerInSkyriding)
-      if ok then return v and true or false end
-    end
-    if C_PlayerInfo.IsPlayerInDragonriding then
-      local ok, v = pcall(C_PlayerInfo.IsPlayerInDragonriding)
-      if ok then return v and true or false end
-    end
-  end
-
-  -- Fallback: only count if you're actually flying (prevents ground mounts in flyable areas)
   if IsFlying then
     local okFlying, flying = pcall(IsFlying)
     if okFlying and flying then
