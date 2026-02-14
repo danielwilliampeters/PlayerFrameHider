@@ -9,7 +9,7 @@ local DEFAULTS = PFH.DEFAULTS
 -- are updated programmatically.
 local inCallback = false
 
-local ENABLE_ACTION_BARS = false
+local ENABLE_ACTION_BARS = true
 local ENABLE_ACTION_BARS_ALPHA = false
 local ENABLE_COOLDOWN_ALPHA = false
 local ENABLE_OBJECTIVE_ALPHA = false
