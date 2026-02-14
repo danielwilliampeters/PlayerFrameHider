@@ -377,9 +377,27 @@ local function AreWidgetsActive()
   return false
 end
 
+local function IsVehicleActionBarActive()
+  -- Prefer the dedicated vehicle APIs when available.
+  if HasVehicleActionBar and HasVehicleActionBar() then
+    return true
+  end
+
+  if UnitHasVehicleUI and UnitHasVehicleUI("player") then
+    return true
+  end
+
+  return false
+end
+
 local function ShouldShowWidgets()
   if not PFH_DB.enabled then
     return true -- addon disabled => do not hide widgets
+  end
+
+  -- Never show the cooldown manager while the vehicle action bar is active.
+  if IsVehicleActionBarActive() then
+    return false
   end
 
   if PFH.IsAlwaysShowInstance() then return true end
