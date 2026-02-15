@@ -314,108 +314,6 @@ local function ShouldShowPetFrame()
   return false
 end
 
-local function GetItemCooldownFrame(item)
-  if type(item) ~= "table" then return nil end
-
-  -- Commonly-used cooldown frame fields
-  local candidates = {
-    item.cooldown,
-    item.Cooldown,
-    item.CooldownWidget,
-    item.CooldownFrame,
-  }
-
-  for i = 1, #candidates do
-    local cd = candidates[i]
-    if cd and cd.GetCooldownTimes then
-      return cd
-    end
-  end
-
-  -- Fallback: scan children for a cooldown frame
-  if item.GetChildren then
-    local numChildren = select("#", item:GetChildren())
-    for i = 1, numChildren do
-      local child = select(i, item:GetChildren())
-      if child and child.GetCooldownTimes then
-        return child
-      end
-    end
-  end
-
-  return nil
-end
-
-local function PoolHasActiveCooldown(pool)
-  if not pool or type(pool) ~= "table" then
-    return false
-  end
-
-  local function ForEachActive(callback)
-    if type(pool.EnumerateActive) == "function" then
-      for item in pool:EnumerateActive() do
-        if callback(item) then return true end
-      end
-    elseif type(pool.activeObjects) == "table" then
-      for item in pairs(pool.activeObjects) do
-        if callback(item) then return true end
-      end
-    end
-    return false
-  end
-
-  return ForEachActive(function(item)
-    if type(item) ~= "table" then
-      return false
-    end
-
-    -- If we have a cooldown widget and it is currently shown,
-    -- treat it as active without inspecting any secret/secure fields.
-    local cd = GetItemCooldownFrame(item)
-    if cd and cd.IsShown and cd:IsShown() then
-      return true
-    end
-
-    return false
-  end)
-end
-
-local function ViewerHasActiveCooldown(viewer)
-  if not viewer or type(viewer) ~= "table" then return false end
-
-  if PoolHasActiveCooldown(viewer.itemFramePool) then
-    return true
-  end
-
-  if PoolHasActiveCooldown(viewer.pandemicIconPool) then
-    return true
-  end
-
-  return false
-end
-
-local function AreWidgetsActive()
-  if not PFH_DB.enabled then return false end
-  if not PFH_DB.showCooldownManagerWhenActive then return false end
-  if not (PFH_DB.controlEssentialCooldowns or PFH_DB.controlUtilityCooldowns or PFH_DB.controlTrackedBuffs) then
-    return false
-  end
-
-  if PFH_DB.controlEssentialCooldowns and ViewerHasActiveCooldown(state.EssentialCDFrame) then
-    return true
-  end
-
-  if PFH_DB.controlUtilityCooldowns and ViewerHasActiveCooldown(state.UtilityCDFrame) then
-    return true
-  end
-
-  if PFH_DB.controlTrackedBuffs and ViewerHasActiveCooldown(state.TrackedBuffsFrame) then
-    return true
-  end
-
-  return false
-end
-
 local function ShouldShowWidgets()
   if not PFH_DB.enabled then
     return true -- addon disabled => do not hide widgets
@@ -440,7 +338,7 @@ local function ShouldShowWidgets()
 
   -- Optionally show widgets whenever the Blizzard Cooldown Manager
   -- considers them active (e.g. when it has cooldowns to display)
-  if AreWidgetsActive() then
+  if PFH.AreWidgetsActive and PFH.AreWidgetsActive() then
     return true
   end
 
@@ -480,14 +378,6 @@ local function GetBuffFrame()
   end
 
   return nil
-end
-
-local function IsWorldMapOpen()
-  local map = _G.WorldMapFrame
-  if map and map.IsShown and map:IsShown() then
-    return true
-  end
-  return false
 end
 
 -- =========================================================
@@ -598,17 +488,6 @@ local function ResolveActionBarFrames()
   return frames
 end
 
-local function NeedWidgets()
-  return PFH_DB.controlEssentialCooldowns or PFH_DB.controlUtilityCooldowns or PFH_DB.controlTrackedBuffs
-end
-
-local function HaveRequiredWidgets()
-  if not NeedWidgets() then return true end
-  return ((not PFH_DB.controlEssentialCooldowns or state.EssentialCDFrame) and
-          (not PFH_DB.controlUtilityCooldowns or state.UtilityCDFrame) and
-          (not PFH_DB.controlTrackedBuffs or state.TrackedBuffsFrame))
-end
-
 -- forward declare
 local function ResolveWidgetFramesWithRetries()
   local tries = 0
@@ -621,7 +500,7 @@ local function ResolveWidgetFramesWithRetries()
 
     Apply()
 
-    if HaveRequiredWidgets() or tries >= 10 then
+    if PFH.HaveRequiredWidgets and PFH.HaveRequiredWidgets() or tries >= 10 then
       ticker:Cancel()
     end
   end)
@@ -645,19 +524,6 @@ local function GetObjectiveFrame()
   return nil
 end
 
-local function HasSuperTrackedQuest()
-  if not C_SuperTrack or not C_SuperTrack.GetSuperTrackedQuestID then
-    return false
-  end
-
-  local questID = C_SuperTrack.GetSuperTrackedQuestID()
-  if not questID or questID == 0 then
-    return false
-  end
-
-  return true
-end
-
 local function BaseShouldShowObjectiveTracker()
   if not PFH_DB.enabled then
     return true
@@ -669,7 +535,7 @@ local function BaseShouldShowObjectiveTracker()
 
   -- Always show objectives when the world map is open so
   -- the quest list remains visible alongside the map.
-  if IsWorldMapOpen() then
+  if PFH.IsWorldMapOpen and PFH.IsWorldMapOpen() then
     return true
   end
 
@@ -706,19 +572,6 @@ local function ShouldShowBuffFrame()
   end
 
   return false
-end
-
-local function AnyActionBarHideEnabled()
-  return PFH_DB.hideActionBar1
-    or PFH_DB.hideActionBar2
-    or PFH_DB.hideActionBar3
-    or PFH_DB.hideActionBar4
-    or PFH_DB.hideActionBar5
-    or PFH_DB.hideActionBar6
-    or PFH_DB.hideActionBar7
-    or PFH_DB.hideActionBar8
-    or PFH_DB.hidePetBar
-    or PFH_DB.hideStanceBar
 end
 
 local function ShouldShowActionBar1()
@@ -838,7 +691,7 @@ local function ShouldShowObjectiveTracker()
     return true
   end
 
-  if PFH_DB.forceShowTrackerWhenSuperTracked and HasSuperTrackedQuest() then
+  if PFH_DB.forceShowTrackerWhenSuperTracked and PFH.HasSuperTrackedQuest and PFH.HasSuperTrackedQuest() then
     return true
   end
 
@@ -1250,7 +1103,7 @@ end
 
 local function OnActionBarEnter()
   if not PFH_DB.enabled then return end
-  if not AnyActionBarHideEnabled() then return end
+  if not PFH.AnyActionBarHideEnabled or not PFH.AnyActionBarHideEnabled() then return end
   if not PFH_DB.actionBarHoverReveal then return end
 
   if state.actionBarHoverHideTimer then
@@ -1263,7 +1116,7 @@ local function OnActionBarEnter()
 end
 
 local function OnActionBarLeave()
-  if not AnyActionBarHideEnabled() then return end
+  if not PFH.AnyActionBarHideEnabled or not PFH.AnyActionBarHideEnabled() then return end
   if not PFH_DB.actionBarHoverReveal then return end
 
   if state.actionBarHoverHideTimer then
@@ -1299,7 +1152,7 @@ local function ApplyWidget(frame, enabled)
 end
 
 local function ApplyActionBars()
-  if not AnyActionBarHideEnabled() then
+  if not PFH.AnyActionBarHideEnabled or not PFH.AnyActionBarHideEnabled() then
     return
   end
 
@@ -1566,8 +1419,6 @@ PFH.ShouldShowPetBar = ShouldShowPetBar
 PFH.ShouldShowStanceBar = ShouldShowStanceBar
 
 PFH.ResolveWidgetFramesWithRetries = ResolveWidgetFramesWithRetries
-PFH.NeedWidgets = NeedWidgets
-PFH.HaveRequiredWidgets = HaveRequiredWidgets
 PFH.ResolveActionBarFramesOnce = ResolveActionBarFrames
 
 PFH.SetPlayerFrameVisible = SetPlayerFrameVisible

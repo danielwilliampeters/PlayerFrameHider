@@ -11,6 +11,7 @@ local inCallback = false
 
 local ENABLE_ACTION_BARS = true
 local ENABLE_ACTION_BARS_ALPHA = false
+local ENABLE_HOVER_REVEAL_ACTION_BARS = false
 local ENABLE_COOLDOWN_ALPHA = false
 local ENABLE_OBJECTIVE_ALPHA = false
 local ENABLE_HOVER_REVEAL_OBJECTIVES = false
@@ -451,6 +452,20 @@ function PFH.CreateSettingsPanel()
     0, 1, 0.05, DEFAULTS.hiddenAlpha
   )
 
+  AddHeader("Pet Frame")
+
+  AddCheckbox(
+    "hidePetFrame",
+    "Hide Pet Frame",
+    "Hides the Blizzard Pet Frame by default.\n\nShows again based on your display rules (combat/target)."
+  )
+
+  AddCheckbox(
+    "showPetWhenHealthBelow100",
+    "Show Pet Frame on Health Change",
+    "Temporarily show the Pet Frame when your pet's health changes."
+  )
+
   AddHeader("Cooldown Manager")
 
   AddCooldownDropdown()
@@ -469,20 +484,6 @@ function PFH.CreateSettingsPanel()
       0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
     )
   end
-
-  AddHeader("Pet Frame")
-
-  AddCheckbox(
-    "hidePetFrame",
-    "Hide Pet Frame",
-    "Hides the Blizzard Pet Frame by default.\n\nShows again based on your display rules (combat/target)."
-  )
-
-  AddCheckbox(
-    "showPetWhenHealthBelow100",
-    "Show Pet Frame on Health Change",
-    "Temporarily show the Pet Frame when your pet's health changes."
-  )
 
   AddHeader("Buffs")
 

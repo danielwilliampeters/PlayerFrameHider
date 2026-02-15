@@ -169,3 +169,177 @@ function PFH.IsVehicleActionBarActive()
 
   return false
 end
+
+-- =========================================================
+-- Cooldown widget helpers
+-- =========================================================
+
+-- Internal: locate a cooldown frame on an item/widget.
+local function GetItemCooldownFrame(item)
+  if type(item) ~= "table" then return nil end
+
+  local candidates = {
+    item.cooldown,
+    item.Cooldown,
+    item.CooldownWidget,
+    item.CooldownFrame,
+  }
+
+  for i = 1, #candidates do
+    local cd = candidates[i]
+    if cd and cd.GetCooldownTimes then
+      return cd
+    end
+  end
+
+  if item.GetChildren then
+    local numChildren = select("#", item:GetChildren())
+    for i = 1, numChildren do
+      local child = select(i, item:GetChildren())
+      if child and child.GetCooldownTimes then
+        return child
+      end
+    end
+  end
+
+  return nil
+end
+
+-- Internal: check whether any active objects in a pool have a visible cooldown.
+local function PoolHasActiveCooldown(pool)
+  if not pool or type(pool) ~= "table" then
+    return false
+  end
+
+  local function ForEachActive(callback)
+    if type(pool.EnumerateActive) == "function" then
+      for item in pool:EnumerateActive() do
+        if callback(item) then return true end
+      end
+    elseif type(pool.activeObjects) == "table" then
+      for item in pairs(pool.activeObjects) do
+        if callback(item) then return true end
+      end
+    end
+    return false
+  end
+
+  return ForEachActive(function(item)
+    if type(item) ~= "table" then
+      return false
+    end
+
+    local cd = GetItemCooldownFrame(item)
+    if cd and cd.IsShown and cd:IsShown() then
+      return true
+    end
+
+    return false
+  end)
+end
+
+-- Check whether a cooldown viewer has any active cooldowns.
+local function ViewerHasActiveCooldown(viewer)
+  if not viewer or type(viewer) ~= "table" then return false end
+
+  if PoolHasActiveCooldown(viewer.itemFramePool) then
+    return true
+  end
+
+  if PoolHasActiveCooldown(viewer.pandemicIconPool) then
+    return true
+  end
+
+  return false
+end
+
+-- Return true if any of the configured cooldown widgets currently have
+-- active cooldowns that should keep the manager visible.
+function PFH.AreWidgetsActive()
+  if not PFH_DB or not PFH_DB.enabled then return false end
+  if not PFH_DB.showCooldownManagerWhenActive then return false end
+  if not (PFH_DB.controlEssentialCooldowns or PFH_DB.controlUtilityCooldowns or PFH_DB.controlTrackedBuffs) then
+    return false
+  end
+
+  local state = PFH.state or {}
+
+  if PFH_DB.controlEssentialCooldowns and ViewerHasActiveCooldown(state.EssentialCDFrame) then
+    return true
+  end
+
+  if PFH_DB.controlUtilityCooldowns and ViewerHasActiveCooldown(state.UtilityCDFrame) then
+    return true
+  end
+
+  if PFH_DB.controlTrackedBuffs and ViewerHasActiveCooldown(state.TrackedBuffsFrame) then
+    return true
+  end
+
+  return false
+end
+
+-- =========================================================
+-- Action bar/helpers
+-- =========================================================
+
+-- Return true if any hide-action-bar option is enabled.
+function PFH.AnyActionBarHideEnabled()
+  if not PFH_DB then return false end
+
+  return PFH_DB.hideActionBar1
+    or PFH_DB.hideActionBar2
+    or PFH_DB.hideActionBar3
+    or PFH_DB.hideActionBar4
+    or PFH_DB.hideActionBar5
+    or PFH_DB.hideActionBar6
+    or PFH_DB.hideActionBar7
+    or PFH_DB.hideActionBar8
+    or PFH_DB.hidePetBar
+    or PFH_DB.hideStanceBar
+end
+
+-- =========================================================
+-- Cooldown widget presence helpers
+-- =========================================================
+
+function PFH.NeedWidgets()
+  if not PFH_DB then return false end
+  return PFH_DB.controlEssentialCooldowns or PFH_DB.controlUtilityCooldowns or PFH_DB.controlTrackedBuffs
+end
+
+function PFH.HaveRequiredWidgets()
+  if not PFH.NeedWidgets() then return true end
+
+  local state = PFH.state or {}
+
+  return ((not PFH_DB.controlEssentialCooldowns or state.EssentialCDFrame) and
+          (not PFH_DB.controlUtilityCooldowns or state.UtilityCDFrame) and
+          (not PFH_DB.controlTrackedBuffs or state.TrackedBuffsFrame))
+end
+
+-- =========================================================
+-- Objective tracker helpers
+-- =========================================================
+
+function PFH.HasSuperTrackedQuest()
+  if not C_SuperTrack or not C_SuperTrack.GetSuperTrackedQuestID then
+    return false
+  end
+
+  local questID = C_SuperTrack.GetSuperTrackedQuestID()
+  if not questID or questID == 0 then
+    return false
+  end
+
+  return true
+end
+
+function PFH.IsWorldMapOpen()
+  local map = _G.WorldMapFrame
+  if map and map.IsShown and map:IsShown() then
+    return true
+  end
+  return false
+end
+
