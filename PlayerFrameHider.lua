@@ -19,7 +19,6 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
-  hidePetFrame = false,
   hideActionBar1 = false,
   hideActionBar2 = false,
   hideActionBar3 = false,
@@ -43,7 +42,7 @@ PFH.DEFAULTS = {
   combatHoldSeconds = 3,
   showTargetMode = 1,
   showWhenHealthBelow100 = true,
-  showPetWhenHealthBelow100 = false,
+  petFrameMode = 0, -- 0 = always show, 1 = hide, 2 = auto (health)
   hoverRevealOutOfCombat = true,
   controlEssentialCooldowns = false,
   controlUtilityCooldowns = false,
@@ -164,8 +163,7 @@ function PFH.ApplyDefaults()
   ApplyDefault("showInCombat", D.showInCombat)
   ApplyDefault("showTargetMode", D.showTargetMode)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
-  ApplyDefault("hidePetFrame", D.hidePetFrame)
-  ApplyDefault("showPetWhenHealthBelow100", D.showPetWhenHealthBelow100)
+  ApplyDefault("petFrameMode", D.petFrameMode)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
   ApplyDefault("objectiveHoverReveal", D.objectiveHoverReveal)
   ApplyDefault("buffHoverReveal", D.buffHoverReveal)
@@ -295,16 +293,24 @@ local function ShouldShowPetFrame()
     return true -- addon disabled => do not hide anything
   end
 
+  local mode = tonumber(PFH_DB.petFrameMode) or PFH.DEFAULTS.petFrameMode or 0
+
   if PFH.IsAlwaysShowInstance() then return true end
 
-  -- if not hiding at all, always show
-  if not PFH_DB.hidePetFrame then return true end
+  -- Mode 0: always show the pet frame.
+  if mode == 0 then
+    return true
+  end
 
+  -- Modes 1 and 2 hide the frame by default, with different rules
+  -- for health-based auto-show in mode 2.
   if PFH_DB.showInCombat and PFH.IsInCombat() then return true end
   if PFH.HasTargetLike() then return true end
 
-  local hurtUntil = state.hurtPetUntil or 0
-  if PFH_DB.showPetWhenHealthBelow100 and GetTime() < hurtUntil then return true end
+  if mode == 2 then
+    local hurtUntil = state.hurtPetUntil or 0
+    if GetTime() < hurtUntil then return true end
+  end
 
   -- During a combat-hold window for unit frames, keep the frame visible
   if state.combatHoldPlayer then
@@ -1281,7 +1287,7 @@ local function EnsureHurtTicker()
     local now = GetTime()
 
     local playerEnabled = PFH_DB.showWhenHealthBelow100 and true or false
-    local petEnabled = PFH_DB.showPetWhenHealthBelow100 and true or false
+    local petEnabled = (tonumber(PFH_DB.petFrameMode) == 2)
 
     local playerExpired = (not playerEnabled) or (now >= (state.hurtPlayerUntil or state.hurtUntil or 0))
     local petExpired = (not petEnabled) or (now >= (state.hurtPetUntil or 0))

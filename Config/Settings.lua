@@ -116,13 +116,6 @@ function PFH.CreateSettingsPanel()
         state.hurtPlayerUntil = 0
       end
 
-      if key == "showPetWhenHealthBelow100" and not PFH_DB.showPetWhenHealthBelow100 then
-        if not PFH_DB.showWhenHealthBelow100 then
-          PFH.StopHurtTicker()
-        end
-        state.hurtPetUntil = 0
-      end
-
       if key == "hoverRevealOutOfCombat" and not PFH_DB.hoverRevealOutOfCombat then
         -- Turning off global hover reveal should immediately clear any
         -- hover overrides/timers for the player frame.
@@ -346,7 +339,7 @@ function PFH.CreateSettingsPanel()
 
     local function GetCooldownOptions()
       local container = Settings.CreateControlTextContainer()
-      container:Add(0, "Off")
+      container:Add(0, "Always Show")
       container:Add(1, "Essential")
       container:Add(2, "Essential + Utility")
       container:Add(3, "All")
@@ -369,6 +362,67 @@ function PFH.CreateSettingsPanel()
         if value > 3 then value = 3 end
 
         PFH.SetCooldownMode(value)
+
+        PFH.ResolveWidgetFramesOnce()
+        PFH.Apply()
+
+        inCallback = false
+      end)
+    end
+  end
+
+  local function AddPetFrameDropdown()
+    local key = "petFrameMode"
+    local varName = VarNameFor(key)
+
+    if PFH_DB[key] == nil then
+      PFH_DB[key] = DEFAULTS.petFrameMode or 0
+    end
+
+    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
+    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
+    if PFH_DB[varName] > 2 then PFH_DB[varName] = 2 end
+
+    local defaultValue = DEFAULTS.petFrameMode or 0
+
+    local ok, setting = pcall(Settings.RegisterAddOnSetting,
+      category,
+      varName,
+      varName,
+      PFH_DB,
+      (Settings.VarType and Settings.VarType.Number) or "number",
+      "Hide Pet Frame",
+      defaultValue
+    )
+    if not (ok and setting) then
+      error(("PlayerFrameHider: RegisterAddOnSetting failed for %s (%s): %s"):format(key, tostring(varName), tostring(setting)))
+    end
+
+    local function GetPetFrameOptions()
+      local container = Settings.CreateControlTextContainer()
+      container:Add(0, "Always Show")
+      container:Add(1, "Hide")
+      container:Add(2, "Auto (Health)")
+      return container:GetData()
+    end
+
+    local tooltip = "Controls when the Blizzard Pet Frame is hidden and when it becomes visible again.\n\nAlways Show: The Pet Frame is never hidden.\nHide: The Pet Frame is hidden by default and shown based on your visibility rules (combat/target).\nHide + Health: Hidden by default and also briefly shown when your pet's health changes."
+
+    if Settings.CreateDropdown and Settings.CreateControlTextContainer then
+      Settings.CreateDropdown(category, setting, GetPetFrameOptions, tooltip)
+    end
+
+    if Settings.SetOnValueChangedCallback then
+      Settings.SetOnValueChangedCallback(varName, function()
+        if inCallback then return end
+        inCallback = true
+
+        local value = tonumber(setting:GetValue()) or 0
+        if value < 0 then value = 0 end
+        if value > 2 then value = 2 end
+
+        PFH_DB[varName] = value
+        PFH_DB[key] = value
 
         PFH.ResolveWidgetFramesOnce()
         PFH.Apply()
@@ -453,18 +507,7 @@ function PFH.CreateSettingsPanel()
   )
 
   AddHeader("Pet Frame")
-
-  AddCheckbox(
-    "hidePetFrame",
-    "Hide Pet Frame",
-    "Hides the Blizzard Pet Frame by default.\n\nShows again based on your display rules (combat/target)."
-  )
-
-  AddCheckbox(
-    "showPetWhenHealthBelow100",
-    "Show Pet Frame on Health Change",
-    "Temporarily show the Pet Frame when your pet's health changes."
-  )
+  AddPetFrameDropdown()
 
   AddHeader("Cooldown Manager")
 

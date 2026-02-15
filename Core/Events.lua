@@ -106,7 +106,7 @@ local function OnUnitHealthChanged(unit)
   if unit == "player" and PFH_DB.showWhenHealthBelow100 then
     PFH.MarkHurt("player")
     affected = true
-  elseif unit == "pet" and PFH_DB.showPetWhenHealthBelow100 then
+  elseif unit == "pet" and tonumber(PFH_DB.petFrameMode) == 2 then
     PFH.MarkHurt("pet")
     affected = true
   end
