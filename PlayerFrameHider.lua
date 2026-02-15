@@ -42,7 +42,7 @@ PFH.DEFAULTS = {
   combatHoldSeconds = 3,
   showTargetMode = 1,
   showWhenHealthBelow100 = true,
-  petFrameMode = 0, -- 0 = always show, 1 = hide, 2 = auto (health)
+  petFrameMode = 1, -- 0 = always show, 1 = hide, 2 = auto (health)
   hoverRevealOutOfCombat = true,
   controlEssentialCooldowns = false,
   controlUtilityCooldowns = false,
