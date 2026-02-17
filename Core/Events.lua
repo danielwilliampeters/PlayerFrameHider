@@ -7,14 +7,14 @@ local eventFrame = CreateFrame("Frame")
 local function OnLogin()
   if state.didInit then
     -- Still refresh combat flag and apply, but don't re-run init/setup.
-    state.inCombat = UnitAffectingCombat("player") and true or false
+    state.inCombat = UnitAffectingCombat("player")
     PFH.Apply()
     return
   end
   state.didInit = true
 
   PFH.ApplyDefaults()
-  state.inCombat = UnitAffectingCombat("player") and true or false
+  state.inCombat = UnitAffectingCombat("player")
 
   if PFH.CreateSettingsPanel then
     PFH.CreateSettingsPanel()
@@ -101,20 +101,18 @@ local function OnTargetOrZoneChanged()
 end
 
 local function OnUnitHealthChanged(unit)
-  local affected = false
-
-  if unit == "player" and PFH_DB.showWhenHealthBelow100 then
+  if unit == "player" then
+    if PFH_DB.playerFrameMode ~= 2 then return end
     PFH.MarkHurt("player")
-    affected = true
-  elseif unit == "pet" and tonumber(PFH_DB.petFrameMode) == 2 then
+  elseif unit == "pet" then
+    if PFH_DB.petFrameMode ~= 2 then return end
     PFH.MarkHurt("pet")
-    affected = true
+  else
+    return
   end
 
-  if affected then
-    PFH.EnsureHurtTicker()
-    PFH.Apply()
-  end
+  PFH.EnsureHurtTicker()
+  PFH.Apply()
 end
 
 local function OnObjectiveTrackerChanged()

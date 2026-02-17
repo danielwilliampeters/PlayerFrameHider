@@ -170,8 +170,6 @@ function PFH.ApplyDefaults()
   ApplyDefault("enabled", D.enabled)
   ApplyDefault("showInCombat", D.showInCombat)
   ApplyDefault("showTargetMode", D.showTargetMode)
-  ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
-  ApplyDefault("playerFrameMode", D.playerFrameMode)
   ApplyDefault("petFrameMode", D.petFrameMode)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
   ApplyDefault("objectiveHoverReveal", D.objectiveHoverReveal)
@@ -229,12 +227,12 @@ function PFH.ApplyDefaults()
     end
   end
 
-  -- Migrate between playerFrameMode and the underlying booleans so that
-  -- existing profiles keep their behavior and new installs prefer the
-  -- mode-based setting.
+  -- Migrate between legacy booleans and the new playerFrameMode. For
+  -- legacy profiles (no playerFrameMode yet), derive a mode from the
+  -- old fields once. After that, playerFrameMode is the source of truth
+  -- and the booleans are considered legacy.
   local mode = tonumber(PFH_DB.playerFrameMode)
   if mode == nil then
-    -- Derive mode from existing booleans (or defaults) on first run.
     local hide = PFH_DB.hidePlayerFrame
     if hide == nil then hide = D.hidePlayerFrame end
     local showHurt = PFH_DB.showWhenHealthBelow100
@@ -247,24 +245,14 @@ function PFH.ApplyDefaults()
     else
       mode = 1 -- Hide
     end
-    PFH_DB.playerFrameMode = mode
   end
 
-  -- Clamp and push booleans from the chosen mode so the rest of the
-  -- addon continues to use hidePlayerFrame + showWhenHealthBelow100.
+  if mode == nil then
+    mode = tonumber(D.playerFrameMode) or 2
+  end
+
   if mode < 0 then mode = 0 elseif mode > 2 then mode = 2 end
   PFH_DB.playerFrameMode = mode
-
-  if mode == 0 then
-    PFH_DB.hidePlayerFrame = false
-    PFH_DB.showWhenHealthBelow100 = false
-  elseif mode == 1 then
-    PFH_DB.hidePlayerFrame = true
-    PFH_DB.showWhenHealthBelow100 = false
-  else
-    PFH_DB.hidePlayerFrame = true
-    PFH_DB.showWhenHealthBelow100 = true
-  end
 
   -- cooldown mode: seed once, then derive flags via SetCooldownMode
   if PFH_DB.cooldownDisplayMode == nil then
@@ -314,13 +302,17 @@ local function ShouldShowPlayerFrame()
 
   if PFH.IsAlwaysShowInstance() then return true end
 
-  -- if not hiding at all, always show
-  if not PFH_DB.hidePlayerFrame then return true end
+  local mode = tonumber(PFH_DB.playerFrameMode) or tonumber(PFH.DEFAULTS.playerFrameMode) or 2
+
+  -- Mode 0: always show the player frame.
+  if mode == 0 then
+    return true
+  end
 
   if PFH_DB.showInCombat and PFH.IsInCombat() then return true end
   if PFH.HasTargetLike() then return true end
   local hurtUntil = state.hurtPlayerUntil or state.hurtUntil or 0
-  if PFH_DB.showWhenHealthBelow100 and GetTime() < hurtUntil then return true end
+  if mode == 2 and GetTime() < hurtUntil then return true end
 
   if PFH_DB.hoverRevealOutOfCombat and state.hoverOverride and not PFH.IsInCombat() then
     return true

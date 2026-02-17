@@ -402,11 +402,11 @@ function PFH.CreateSettingsPanel()
       local container = Settings.CreateControlTextContainer()
       container:Add(0, "Always Show")
       container:Add(1, "Hide")
-      container:Add(2, "Auto (Health)")
+      container:Add(2, "Auto")
       return container:GetData()
     end
 
-    local tooltip = "Controls when the Blizzard Pet Frame is hidden and when it becomes visible again.\n\nAlways Show: The Pet Frame is never hidden.\nHide: The Pet Frame is hidden by default and shown based on your visibility rules (combat/target).\nHide + Health: Hidden by default and also briefly shown when your pet's health changes."
+    local tooltip = "Controls when the Blizzard Pet Frame is hidden and when it becomes visible again.\n\nAlways Show: The Pet Frame is never hidden.\nHide: The Pet Frame is hidden by default and shown based on your visibility rules (combat/target).\nAuto: Hidden by default and also briefly shown when your pet's health changes."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetPetFrameOptions, tooltip)
@@ -490,11 +490,11 @@ function PFH.CreateSettingsPanel()
       local container = Settings.CreateControlTextContainer()
       container:Add(0, "Always Show")
       container:Add(1, "Hide")
-      container:Add(2, "Hide + Health")
+      container:Add(2, "Auto")
       return container:GetData()
     end
 
-    local tooltip = "Controls when the Blizzard Player Frame is hidden and when it becomes visible again.\n\nAlways Show: The Player Frame is never hidden.\nHide: Hidden by default and shown based on your visibility rules (combat/target).\nHide + Health: Hidden by default and also briefly shown when your health changes."
+    local tooltip = "Controls when the Blizzard Player Frame is hidden and when it becomes visible again.\n\nAlways Show: The Player Frame is never hidden.\nHide: Hidden by default and shown based on your visibility rules (combat/target).\nAuto: Hidden by default and also briefly shown when your health changes."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetPlayerFrameOptions, tooltip)
@@ -512,26 +512,7 @@ function PFH.CreateSettingsPanel()
         PFH_DB[varName] = value
         PFH_DB[key] = value
 
-        -- Keep underlying booleans in sync for core logic.
-        if value == 0 then
-          PFH_DB.hidePlayerFrame = false
-          PFH_DB.showWhenHealthBelow100 = false
-        elseif value == 1 then
-          PFH_DB.hidePlayerFrame = true
-          PFH_DB.showWhenHealthBelow100 = false
-        else -- 2
-          PFH_DB.hidePlayerFrame = true
-          PFH_DB.showWhenHealthBelow100 = true
-        end
-
-        -- Mirror into Settings-backed PFH_* vars so any legacy
-        -- Settings storage stays consistent.
-        local hideVar = VarNameFor("hidePlayerFrame")
-        local hurtVar = VarNameFor("showWhenHealthBelow100")
-        PFH_DB[hideVar] = PFH_DB.hidePlayerFrame
-        PFH_DB[hurtVar] = PFH_DB.showWhenHealthBelow100
-
-        if not PFH_DB.showWhenHealthBelow100 and PFH.StopHurtTicker then
+        if PFH_DB.showWhenHealthBelow100 ~= nil and value ~= 2 and PFH.StopHurtTicker then
           PFH.StopHurtTicker()
           state.hurtUntil = 0
           state.hurtPlayerUntil = 0
