@@ -159,11 +159,12 @@ function PFH.ApplyDefaults()
     end
   end
 
-  -- migrate legacy showCooldownManagerWhenActive default to false if not already migrated, since the feature is more niche and users may not expect it to be on by default
-  if not PFH_DB._migrated_disableShowCooldownWhenActive then
+  -- migrate legacy showCooldownManagerWhenActive: always force it off if it
+  -- was previously enabled. This keeps the feature effectively disabled in
+  -- newer versions, even for older profiles.
+  if PFH_DB.showCooldownManagerWhenActive == true then
     PFH_DB.showCooldownManagerWhenActive = false
     PFH_DB.PFH_showCooldownManagerWhenActive = false -- Settings mirror
-    PFH_DB._migrated_disableShowCooldownWhenActive = true
   end
 
   -- basic defaults
