@@ -159,6 +159,13 @@ function PFH.ApplyDefaults()
     end
   end
 
+  -- migrate legacy showCooldownManagerWhenActive default to false if not already migrated, since the feature is more niche and users may not expect it to be on by default
+  if not PFH_DB._migrated_disableShowCooldownWhenActive then
+    PFH_DB.showCooldownManagerWhenActive = false
+    PFH_DB.PFH_showCooldownManagerWhenActive = false -- Settings mirror
+    PFH_DB._migrated_disableShowCooldownWhenActive = true
+  end
+
   -- basic defaults
   ApplyDefault("enabled", D.enabled)
   ApplyDefault("showInCombat", D.showInCombat)

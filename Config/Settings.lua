@@ -616,11 +616,11 @@ function PFH.CreateSettingsPanel()
 
   AddCooldownDropdown()
 
-  AddCheckbox(
-    "showCooldownManagerWhenActive",
-    "Show When Active",
-    "Automatically shows the Cooldown Manager when it has active cooldowns, even if you are out of combat and have no target."
-  )
+  -- AddCheckbox(
+  --   "showCooldownManagerWhenActive",
+  --   "Show When Active",
+  --   "Automatically shows the Cooldown Manager when it has active cooldowns, even if you are out of combat and have no target."
+  -- )
 
   if ENABLE_COOLDOWN_ALPHA then
     AddSlider(
