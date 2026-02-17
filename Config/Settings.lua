@@ -432,6 +432,119 @@ function PFH.CreateSettingsPanel()
     end
   end
 
+  local function AddPlayerFrameDropdown()
+    local key = "playerFrameMode"
+    local varName = VarNameFor(key)
+
+    -- Derive initial mode from existing booleans if needed.
+    if PFH_DB[key] == nil then
+      local hide = PFH_DB.hidePlayerFrame
+      if hide == nil then hide = DEFAULTS.hidePlayerFrame end
+      local showHurt = PFH_DB.showWhenHealthBelow100
+      if showHurt == nil then showHurt = DEFAULTS.showWhenHealthBelow100 end
+
+      local mode
+      if not hide then
+        mode = 0 -- Always show
+      elseif showHurt then
+        mode = 2 -- Hide + Health
+      else
+        mode = 1 -- Hide
+      end
+
+      PFH_DB[key] = mode
+    end
+
+    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
+    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
+    if PFH_DB[varName] > 2 then PFH_DB[varName] = 2 end
+
+    -- Default derived from original hidePlayerFrame/showWhenHealthBelow100 defaults.
+    local defaultValue
+    do
+      local hide = DEFAULTS.hidePlayerFrame
+      local showHurt = DEFAULTS.showWhenHealthBelow100
+      if not hide then
+        defaultValue = 0
+      elseif showHurt then
+        defaultValue = 2
+      else
+        defaultValue = 1
+      end
+    end
+
+    local ok, setting = pcall(Settings.RegisterAddOnSetting,
+      category,
+      varName,
+      varName,
+      PFH_DB,
+      (Settings.VarType and Settings.VarType.Number) or "number",
+      "Hide Player Frame",
+      defaultValue
+    )
+    if not (ok and setting) then
+      error(("PlayerFrameHider: RegisterAddOnSetting failed for %s (%s): %s"):format(key, tostring(varName), tostring(setting)))
+    end
+
+    local function GetPlayerFrameOptions()
+      local container = Settings.CreateControlTextContainer()
+      container:Add(0, "Always Show")
+      container:Add(1, "Hide")
+      container:Add(2, "Hide + Health")
+      return container:GetData()
+    end
+
+    local tooltip = "Controls when the Blizzard Player Frame is hidden and when it becomes visible again.\n\nAlways Show: The Player Frame is never hidden.\nHide: Hidden by default and shown based on your visibility rules (combat/target).\nHide + Health: Hidden by default and also briefly shown when your health changes."
+
+    if Settings.CreateDropdown and Settings.CreateControlTextContainer then
+      Settings.CreateDropdown(category, setting, GetPlayerFrameOptions, tooltip)
+    end
+
+    if Settings.SetOnValueChangedCallback then
+      Settings.SetOnValueChangedCallback(varName, function()
+        if inCallback then return end
+        inCallback = true
+
+        local value = tonumber(setting:GetValue()) or 0
+        if value < 0 then value = 0 end
+        if value > 2 then value = 2 end
+
+        PFH_DB[varName] = value
+        PFH_DB[key] = value
+
+        -- Keep underlying booleans in sync for core logic.
+        if value == 0 then
+          PFH_DB.hidePlayerFrame = false
+          PFH_DB.showWhenHealthBelow100 = false
+        elseif value == 1 then
+          PFH_DB.hidePlayerFrame = true
+          PFH_DB.showWhenHealthBelow100 = false
+        else -- 2
+          PFH_DB.hidePlayerFrame = true
+          PFH_DB.showWhenHealthBelow100 = true
+        end
+
+        -- Mirror into Settings-backed PFH_* vars so any legacy
+        -- Settings storage stays consistent.
+        local hideVar = VarNameFor("hidePlayerFrame")
+        local hurtVar = VarNameFor("showWhenHealthBelow100")
+        PFH_DB[hideVar] = PFH_DB.hidePlayerFrame
+        PFH_DB[hurtVar] = PFH_DB.showWhenHealthBelow100
+
+        if not PFH_DB.showWhenHealthBelow100 and PFH.StopHurtTicker then
+          PFH.StopHurtTicker()
+          state.hurtUntil = 0
+          state.hurtPlayerUntil = 0
+        end
+
+        PFH.ResolveWidgetFramesOnce()
+        PFH.Apply()
+
+        inCallback = false
+      end)
+    end
+  end
+
   local function AddCombatHoldDropdown()
     local key = "combatHoldSeconds"
     local defaultValue = DEFAULTS[key] or 0
@@ -481,17 +594,7 @@ function PFH.CreateSettingsPanel()
 
   AddHeader("Player Frame")
 
-  AddCheckbox(
-    "hidePlayerFrame",
-    "Hide Player Frame",
-    "Hides the Blizzard Player Frame by default.\n\nShows again based on your display rules (combat/target) and when your health changes.\n\nTip: Enable \"Hover to Reveal\" to temporarily show it on mouseover."
-  )
-
-  AddCheckbox(
-    "showWhenHealthBelow100",
-    "Show Player Frame on Health Change",
-    "Temporarily show the Player Frame when your health changes."
-  )
+  AddPlayerFrameDropdown()
 
   AddCheckbox(
     "hoverRevealOutOfCombat",

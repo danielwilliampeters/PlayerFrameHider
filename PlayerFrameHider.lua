@@ -19,6 +19,7 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 PFH.DEFAULTS = {
   enabled = true,
   hidePlayerFrame = true,
+  playerFrameMode = 2, -- 0 = always show, 1 = hide, 2 = hide + health
   hideActionBar1 = false,
   hideActionBar2 = false,
   hideActionBar3 = false,
@@ -163,6 +164,7 @@ function PFH.ApplyDefaults()
   ApplyDefault("showInCombat", D.showInCombat)
   ApplyDefault("showTargetMode", D.showTargetMode)
   ApplyDefault("showWhenHealthBelow100", D.showWhenHealthBelow100)
+  ApplyDefault("playerFrameMode", D.playerFrameMode)
   ApplyDefault("petFrameMode", D.petFrameMode)
   ApplyDefault("hoverRevealOutOfCombat", D.hoverRevealOutOfCombat)
   ApplyDefault("objectiveHoverReveal", D.objectiveHoverReveal)
@@ -218,6 +220,43 @@ function PFH.ApplyDefaults()
     else
       PFH_DB.hidePlayerFrame = D.hidePlayerFrame
     end
+  end
+
+  -- Migrate between playerFrameMode and the underlying booleans so that
+  -- existing profiles keep their behavior and new installs prefer the
+  -- mode-based setting.
+  local mode = tonumber(PFH_DB.playerFrameMode)
+  if mode == nil then
+    -- Derive mode from existing booleans (or defaults) on first run.
+    local hide = PFH_DB.hidePlayerFrame
+    if hide == nil then hide = D.hidePlayerFrame end
+    local showHurt = PFH_DB.showWhenHealthBelow100
+    if showHurt == nil then showHurt = D.showWhenHealthBelow100 end
+
+    if not hide then
+      mode = 0 -- Always show
+    elseif showHurt then
+      mode = 2 -- Hide + Health
+    else
+      mode = 1 -- Hide
+    end
+    PFH_DB.playerFrameMode = mode
+  end
+
+  -- Clamp and push booleans from the chosen mode so the rest of the
+  -- addon continues to use hidePlayerFrame + showWhenHealthBelow100.
+  if mode < 0 then mode = 0 elseif mode > 2 then mode = 2 end
+  PFH_DB.playerFrameMode = mode
+
+  if mode == 0 then
+    PFH_DB.hidePlayerFrame = false
+    PFH_DB.showWhenHealthBelow100 = false
+  elseif mode == 1 then
+    PFH_DB.hidePlayerFrame = true
+    PFH_DB.showWhenHealthBelow100 = false
+  else
+    PFH_DB.hidePlayerFrame = true
+    PFH_DB.showWhenHealthBelow100 = true
   end
 
   -- cooldown mode: seed once, then derive flags via SetCooldownMode
