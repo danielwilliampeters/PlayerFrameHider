@@ -14,6 +14,9 @@ local function OnLogin()
   state.didInit = true
 
   PFH.ApplyDefaults()
+  if PFH.CleanupLegacySavedVariables then
+    PFH.CleanupLegacySavedVariables()
+  end
   state.inCombat = UnitAffectingCombat("player")
 
   if PFH.CreateSettingsPanel then

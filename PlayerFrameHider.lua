@@ -164,7 +164,6 @@ function PFH.ApplyDefaults()
   -- newer versions, even for older profiles.
   if PFH_DB.showCooldownManagerWhenActive == true then
     PFH_DB.showCooldownManagerWhenActive = false
-    PFH_DB.PFH_showCooldownManagerWhenActive = false -- Settings mirror
   end
 
   -- basic defaults
@@ -265,6 +264,25 @@ function PFH.ApplyDefaults()
 end
 
 -- =========================================================
+-- SavedVariables cleanup (remove legacy PFH_* fields)
+-- =========================================================
+
+function PFH.CleanupLegacySavedVariables()
+  if not PFH_DB or type(PFH_DB) ~= "table" then return end
+
+  local toClear = {}
+  for k in pairs(PFH_DB) do
+    if type(k) == "string" and k:match("^PFH_") then
+      toClear[#toClear + 1] = k
+    end
+  end
+
+  for _, key in ipairs(toClear) do
+    PFH_DB[key] = nil
+  end
+end
+
+-- =========================================================
 -- Helpers
 -- =========================================================
 
@@ -273,9 +291,6 @@ function PFH.SetCooldownMode(mode)
   if m < 0 then m = 0 elseif m > 3 then m = 3 end
 
   PFH_DB.cooldownDisplayMode = m
-
-  -- keep the Settings mirror in sync too
-  PFH_DB.PFH_cooldownDisplayMode = m
 
   -- derived flags (still used everywhere else)
   PFH_DB.controlEssentialCooldowns = (m >= 1)

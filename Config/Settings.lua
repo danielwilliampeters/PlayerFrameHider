@@ -22,9 +22,7 @@ local ENABLE_HOVER_REVEAL_BUFFS = false
 -- Settings panel (Blizzard-native vertical Settings layout)
 -- =========================================================
 
--- Create (and cache) the Retail Settings panel. Uses PFH_*-prefixed
--- Settings variables backed by PFH_DB["PFH_..."] while keeping the
--- legacy PFH_DB[key] values in sync for the rest of the addon.
+-- Create (and cache) the Retail Settings panel.
 function PFH.CreateSettingsPanel()
   if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnCategory) then
     return nil
@@ -53,39 +51,39 @@ function PFH.CreateSettingsPanel()
     return type(v) -- fallback
   end
 
-  -- Namespaced Settings variable name for this addon.
+  -- Namespaced Settings variable name for this addon (ID only; storage
+  -- lives on PFH_DB[key]).
   local function VarNameFor(key)
     return "PFH_" .. key
   end
 
-  -- Seed PFH_DB["PFH_"..key] from PFH_DB[key] (or defaults) so that
-  -- Blizzard Settings sees the current saved value, then keep both in sync.
-  local function SeedVariable(key)
+  -- Seed PFH_DB[key] from any legacy PFH_DB["PFH_"..key] value or
+  -- from defaults so that Settings reflects the current saved value.
+  local function SeedVariable(key, defaultValue)
     local varName = VarNameFor(key)
 
-    if PFH_DB[varName] == nil then
-      if PFH_DB[key] ~= nil then
-        PFH_DB[varName] = PFH_DB[key]
-      else
-        PFH_DB[varName] = DEFAULTS[key]
-      end
-    end
-
     if PFH_DB[key] == nil then
-      PFH_DB[key] = PFH_DB[varName]
+      local legacy = PFH_DB[varName]
+      if legacy ~= nil then
+        PFH_DB[key] = legacy
+      elseif defaultValue ~= nil then
+        PFH_DB[key] = defaultValue
+      else
+        PFH_DB[key] = DEFAULTS[key]
+      end
     end
   end
 
   -- 12.0 signature (works on 120000):
   -- Settings.RegisterAddOnSetting(category, variable, variableKey, variableTbl, variableType, name, defaultValue)
   local function RegisterSetting(key, name, defaultValue)
-    SeedVariable(key)
+    SeedVariable(key, defaultValue)
     local varName = VarNameFor(key)
 
     local ok, setting = pcall(Settings.RegisterAddOnSetting,
       category,
       varName,     -- variable (PFH_-prefixed)
-      varName,     -- variableKey
+      key,         -- variableKey within PFH_DB
       PFH_DB,      -- variableTbl  (MUST be table)
       VarTypeFor(defaultValue),
       name,
@@ -97,17 +95,17 @@ function PFH.CreateSettingsPanel()
     error(("PlayerFrameHider: RegisterAddOnSetting failed for %s (%s): %s"):format(key, tostring(varName), tostring(setting)))
   end
 
-  local function OnChangedFor(key, varName, setting)
+  local function OnChangedFor(key, setting)
     if not (Settings.SetOnValueChangedCallback and setting and setting.GetValue) then return end
+    local varName = VarNameFor(key)
 
-    Settings.SetOnValueChangedCallback(varName, function()
+    local function handler()
       if inCallback then return end
       inCallback = true
 
       local value = setting:GetValue()
 
-      -- Keep Settings storage and legacy addon DB keys in sync.
-      PFH_DB[varName] = value
+      -- Store only the canonical key in SavedVariables.
       PFH_DB[key] = value
 
       if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
@@ -171,7 +169,13 @@ function PFH.CreateSettingsPanel()
       PFH.Apply()
 
       inCallback = false
-    end)
+    end
+
+    -- Different client builds use different signatures here; try both.
+    local ok = pcall(Settings.SetOnValueChangedCallback, setting, handler)
+    if not ok then
+      pcall(Settings.SetOnValueChangedCallback, varName, handler)
+    end
   end
 
   local function CreateCheckboxControl(setting, tooltip)
@@ -187,21 +191,19 @@ function PFH.CreateSettingsPanel()
 
   local function AddCheckbox(key, name, tooltip)
     local defaultValue = DEFAULTS[key] and true or false
-    local setting, varName = RegisterSetting(key, name, defaultValue)
-    OnChangedFor(key, varName, setting)
+    local setting = RegisterSetting(key, name, defaultValue)
+    OnChangedFor(key, setting)
     CreateCheckboxControl(setting, tooltip)
     return setting
   end
 
   local function AddSlider(key, name, tooltip, minValue, maxValue, step, defaultValue)
-    SeedVariable(key)
-    local varName = VarNameFor(key)
+    SeedVariable(key, defaultValue)
 
-    local current = PFH_DB[varName]
+    local current = PFH_DB[key]
     if type(current) ~= "number" then current = 0 end
     if current < minValue then current = minValue end
     if current > maxValue then current = maxValue end
-    PFH_DB[varName] = current
     PFH_DB[key] = current
 
     local default = defaultValue
@@ -211,8 +213,8 @@ function PFH.CreateSettingsPanel()
     if default < minValue then default = minValue end
     if default > maxValue then default = maxValue end
 
-    local setting, registeredVarName = RegisterSetting(key, name, default)
-    OnChangedFor(key, registeredVarName, setting)
+    local setting = RegisterSetting(key, name, default)
+    OnChangedFor(key, setting)
 
     if Settings.CreateSliderOptions and Settings.CreateSlider then
       local opts = Settings.CreateSliderOptions(minValue, maxValue, step)
@@ -249,22 +251,22 @@ function PFH.CreateSettingsPanel()
     local key = "showTargetMode"
     local varName = VarNameFor(key)
 
-    -- Ensure base mode exists
+    -- Ensure base mode exists (canonical only)
     if PFH_DB[key] == nil then
       PFH_DB[key] = DEFAULTS.showTargetMode or 0
     end
 
-    -- Always seed the Settings variable from the base mode
-    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
-    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
-    if PFH_DB[varName] > 3 then PFH_DB[varName] = 3 end
+    local current = tonumber(PFH_DB[key]) or 0
+    if current < 0 then current = 0 end
+    if current > 3 then current = 3 end
+    PFH_DB[key] = current
 
     local defaultValue = DEFAULTS.showTargetMode or 0
 
     local ok, setting = pcall(Settings.RegisterAddOnSetting,
       category,
       varName,
-      varName,
+      key,
       PFH_DB,
       (Settings.VarType and Settings.VarType.Number) or "number",
       "Show With Target",
@@ -289,7 +291,7 @@ function PFH.CreateSettingsPanel()
     end
 
     if Settings.SetOnValueChangedCallback then
-      Settings.SetOnValueChangedCallback(varName, function()
+      local function handler()
         if inCallback then return end
         inCallback = true
 
@@ -297,14 +299,18 @@ function PFH.CreateSettingsPanel()
         if value < 0 then value = 0 end
         if value > 3 then value = 3 end
 
-        PFH_DB[varName] = value
         PFH_DB[key] = value
 
         PFH.ResolveWidgetFramesOnce()
         PFH.Apply()
 
         inCallback = false
-      end)
+      end
+
+      local ok = pcall(Settings.SetOnValueChangedCallback, setting, handler)
+      if not ok then
+        pcall(Settings.SetOnValueChangedCallback, varName, handler)
+      end
     end
   end
 
@@ -312,22 +318,22 @@ function PFH.CreateSettingsPanel()
     local key = "cooldownDisplayMode"
     local varName = VarNameFor(key)
 
-    -- Ensure base mode exists
+    -- Ensure base mode exists (canonical only)
     if PFH_DB[key] == nil then
       PFH_DB[key] = DEFAULTS.cooldownDisplayMode or 0
     end
 
-    -- Always seed the Settings variable from the base mode
-    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
-    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
-    if PFH_DB[varName] > 3 then PFH_DB[varName] = 3 end
+    local current = tonumber(PFH_DB[key]) or 0
+    if current < 0 then current = 0 end
+    if current > 3 then current = 3 end
+    PFH_DB[key] = current
 
     local defaultValue = DEFAULTS.cooldownDisplayMode or 0
 
     local ok, setting = pcall(Settings.RegisterAddOnSetting,
       category,
       varName,
-      varName,
+      key,
       PFH_DB,
       (Settings.VarType and Settings.VarType.Number) or "number",
       "Hide Cooldown Manager",
@@ -353,7 +359,7 @@ function PFH.CreateSettingsPanel()
     end
 
     if Settings.SetOnValueChangedCallback then
-      Settings.SetOnValueChangedCallback(varName, function()
+      local function handler()
         if inCallback then return end
         inCallback = true
 
@@ -367,7 +373,12 @@ function PFH.CreateSettingsPanel()
         PFH.Apply()
 
         inCallback = false
-      end)
+      end
+
+      local ok = pcall(Settings.SetOnValueChangedCallback, setting, handler)
+      if not ok then
+        pcall(Settings.SetOnValueChangedCallback, varName, handler)
+      end
     end
   end
 
@@ -379,16 +390,17 @@ function PFH.CreateSettingsPanel()
       PFH_DB[key] = DEFAULTS.petFrameMode or 0
     end
 
-    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
-    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
-    if PFH_DB[varName] > 2 then PFH_DB[varName] = 2 end
+    local current = tonumber(PFH_DB[key]) or 0
+    if current < 0 then current = 0 end
+    if current > 2 then current = 2 end
+    PFH_DB[key] = current
 
     local defaultValue = DEFAULTS.petFrameMode or 0
 
     local ok, setting = pcall(Settings.RegisterAddOnSetting,
       category,
       varName,
-      varName,
+      key,
       PFH_DB,
       (Settings.VarType and Settings.VarType.Number) or "number",
       "Hide Pet Frame",
@@ -413,7 +425,7 @@ function PFH.CreateSettingsPanel()
     end
 
     if Settings.SetOnValueChangedCallback then
-      Settings.SetOnValueChangedCallback(varName, function()
+      local function handler()
         if inCallback then return end
         inCallback = true
 
@@ -421,14 +433,18 @@ function PFH.CreateSettingsPanel()
         if value < 0 then value = 0 end
         if value > 2 then value = 2 end
 
-        PFH_DB[varName] = value
         PFH_DB[key] = value
 
         PFH.ResolveWidgetFramesOnce()
         PFH.Apply()
 
         inCallback = false
-      end)
+      end
+
+      local ok = pcall(Settings.SetOnValueChangedCallback, setting, handler)
+      if not ok then
+        pcall(Settings.SetOnValueChangedCallback, varName, handler)
+      end
     end
   end
 
@@ -455,9 +471,10 @@ function PFH.CreateSettingsPanel()
       PFH_DB[key] = mode
     end
 
-    PFH_DB[varName] = tonumber(PFH_DB[key]) or 0
-    if PFH_DB[varName] < 0 then PFH_DB[varName] = 0 end
-    if PFH_DB[varName] > 2 then PFH_DB[varName] = 2 end
+    local current = tonumber(PFH_DB[key]) or 0
+    if current < 0 then current = 0 end
+    if current > 2 then current = 2 end
+    PFH_DB[key] = current
 
     -- Default derived from original hidePlayerFrame/showWhenHealthBelow100 defaults.
     local defaultValue
@@ -476,7 +493,7 @@ function PFH.CreateSettingsPanel()
     local ok, setting = pcall(Settings.RegisterAddOnSetting,
       category,
       varName,
-      varName,
+      key,
       PFH_DB,
       (Settings.VarType and Settings.VarType.Number) or "number",
       "Hide Player Frame",
@@ -501,7 +518,7 @@ function PFH.CreateSettingsPanel()
     end
 
     if Settings.SetOnValueChangedCallback then
-      Settings.SetOnValueChangedCallback(varName, function()
+      local function handler()
         if inCallback then return end
         inCallback = true
 
@@ -509,7 +526,6 @@ function PFH.CreateSettingsPanel()
         if value < 0 then value = 0 end
         if value > 2 then value = 2 end
 
-        PFH_DB[varName] = value
         PFH_DB[key] = value
 
         if PFH_DB.showWhenHealthBelow100 ~= nil and value ~= 2 and PFH.StopHurtTicker then
@@ -522,7 +538,12 @@ function PFH.CreateSettingsPanel()
         PFH.Apply()
 
         inCallback = false
-      end)
+      end
+
+      local ok = pcall(Settings.SetOnValueChangedCallback, setting, handler)
+      if not ok then
+        pcall(Settings.SetOnValueChangedCallback, varName, handler)
+      end
     end
   end
 
@@ -530,8 +551,8 @@ function PFH.CreateSettingsPanel()
     local key = "combatHoldSeconds"
     local defaultValue = DEFAULTS[key] or 0
 
-    local setting, varName = RegisterSetting(key, "Post-Combat Hide Delay", defaultValue)
-    OnChangedFor(key, varName, setting)
+    local setting = RegisterSetting(key, "Post-Combat Hide Delay", defaultValue)
+    OnChangedFor(key, setting)
 
     local function GetHoldOptions()
       local container = Settings.CreateControlTextContainer()
