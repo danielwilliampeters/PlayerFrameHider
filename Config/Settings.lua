@@ -594,7 +594,7 @@ function PFH.CreateSettingsPanel()
     "Forces the Player Frame, Cooldown Manager, Buffs, and Objective Tracker to stay visible in instances."
   )
 
-  AddHeader("Player Frame")
+  AddHeader("Frames")
 
   AddPlayerFrameDropdown()
 
@@ -611,10 +611,9 @@ function PFH.CreateSettingsPanel()
     0, 1, 0.05, DEFAULTS.hiddenAlpha
   )
 
-  AddHeader("Pet Frame")
   AddPetFrameDropdown()
 
-  AddHeader("Cooldown Manager")
+  -- AddHeader("Cooldown Manager")
 
   AddCooldownDropdown()
 
@@ -633,7 +632,7 @@ function PFH.CreateSettingsPanel()
     )
   end
 
-  AddHeader("Buffs")
+  -- AddHeader("Buffs")
 
   AddCheckbox(
     "hideBuffFrame",
@@ -658,7 +657,7 @@ function PFH.CreateSettingsPanel()
     )
   end
 
-  AddHeader("Objective Tracker")
+  -- AddHeader("Objective Tracker")
 
   AddCheckbox(
     "hideObjectiveTracker",
@@ -690,7 +689,7 @@ function PFH.CreateSettingsPanel()
   end
 
   if ENABLE_ACTION_BARS then
-    AddHeader("Action Bars")
+    AddHeader("Bars")
 
     AddCheckbox(
       "hideActionBar1",
@@ -702,6 +701,30 @@ function PFH.CreateSettingsPanel()
       "showActionBar1WhenSkyriding",
       "Show While Skyriding",
       "Keeps Action Bar 1 visible while Skyriding."
+    )
+
+    AddCheckbox(
+      "hidePetBar",
+      "Hide Pet Bar",
+      "Hides the Pet Action Bar by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideStanceBar",
+      "Hide Stance Bar",
+      "Hides the Stance Bar by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideBagsBar",
+      "Hide Bag Bar",
+      "Hides the Bag Bar by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideMicroMenu",
+      "Hide Micro Menu",
+      "Hides the Micro Menu by default. Shown on mouseover."
     )
 
     AddCheckbox(
@@ -744,18 +767,6 @@ function PFH.CreateSettingsPanel()
       "hideActionBar8",
       "Hide Action Bar 8",
       "Hides Action Bar 8 by default. Shown on mouseover."
-    )
-
-    AddCheckbox(
-      "hidePetBar",
-      "Hide Pet Bar",
-      "Hides the Pet Action Bar by default. Shown on mouseover."
-    )
-
-    AddCheckbox(
-      "hideStanceBar",
-      "Hide Stance Bar",
-      "Hides the Stance Bar by default. Shown on mouseover."
     )
 
     if ENABLE_HOVER_REVEAL_ACTION_BARS then

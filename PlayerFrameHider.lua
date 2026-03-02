@@ -30,6 +30,8 @@ PFH.DEFAULTS = {
   hideActionBar8 = false,
   hidePetBar = false,
   hideStanceBar = false,
+  hideBagsBar = false,
+  hideMicroMenu = false,
   showActionBar1WhenSkyriding = false,
   hideBuffFrame = false,
   hideObjectiveTracker = false,
@@ -103,6 +105,12 @@ PFH.state = PFH.state or {
   actionBarFrames = nil, -- list of { frame = Frame, kind = "bar1"|"multi"|"pet"|"stance" }
   actionBarHoverOverride = false,
   actionBarHoverHideTimer = nil,
+
+  -- independent hover overrides for bags bar and micro menu
+  bagsHoverOverride = false,
+  bagsHoverHideTimer = nil,
+  microHoverOverride = false,
+  microHoverHideTimer = nil,
 
   ActionBar1Frame = nil,
   PetActionBarFrame = nil,
@@ -185,6 +193,8 @@ function PFH.ApplyDefaults()
   ApplyDefault("hideActionBar8", D.hideActionBar8)
   ApplyDefault("hidePetBar", D.hidePetBar)
   ApplyDefault("hideStanceBar", D.hideStanceBar)
+  ApplyDefault("hideBagsBar", D.hideBagsBar)
+  ApplyDefault("hideMicroMenu", D.hideMicroMenu)
   ApplyDefault("showActionBar1WhenSkyriding", D.showActionBar1WhenSkyriding)
   ApplyDefault("hideBuffFrame", D.hideBuffFrame)
   ApplyDefault("hideObjectiveTracker", D.hideObjectiveTracker)
@@ -266,37 +276,6 @@ end
 -- =========================================================
 -- SavedVariables cleanup (remove legacy PFH_* fields)
 -- =========================================================
-
-function PFH.CleanupLegacySavedVariables()
-  if not PFH_DB or type(PFH_DB) ~= "table" then return end
-
-  local toClear = {}
-  for k in pairs(PFH_DB) do
-    if type(k) == "string" and k:match("^PFH_") then
-      toClear[#toClear + 1] = k
-    end
-  end
-
-  for _, key in ipairs(toClear) do
-    PFH_DB[key] = nil
-  end
-end
-
--- =========================================================
--- Helpers
--- =========================================================
-
-function PFH.SetCooldownMode(mode)
-  local m = tonumber(mode) or 0
-  if m < 0 then m = 0 elseif m > 3 then m = 3 end
-
-  PFH_DB.cooldownDisplayMode = m
-
-  -- derived flags (still used everywhere else)
-  PFH_DB.controlEssentialCooldowns = (m >= 1)
-  PFH_DB.controlUtilityCooldowns   = (m >= 2)
-  PFH_DB.controlTrackedBuffs       = (m >= 3)
-end
 
 local function MarkHurt(which)
   local defaultSeconds = PFH.DEFAULTS.hurtGraceSeconds or 0
@@ -444,11 +423,14 @@ end
 -- Action bar frame helpers
 -- =========================================================
 
-local function AddActionBarFrame(list, frame, kind)
+local function AddActionBarFrame(list, frame, kind, alphaTarget)
   if not frame or not frame.GetAlpha or not frame.SetAlpha then
     return
   end
-  list[#list + 1] = { frame = frame, kind = kind }
+  -- alphaTarget controls whether SetSimpleFrameVisible() should be
+  -- applied to this entry. Defaults to true when omitted.
+  local doAlpha = (alphaTarget ~= false)
+  list[#list + 1] = { frame = frame, kind = kind, alphaTarget = doAlpha }
 end
 
 local function ResolveActionBarFrames()
@@ -545,6 +527,93 @@ local function ResolveActionBarFrames()
   end
 
   state.actionBarFrames = frames
+  return frames
+end
+
+-- Resolve non-action-bar button groups (bags bar and micro menu).
+-- These are kept separate from ResolveActionBarFrames so that
+-- true action bars remain distinct from UI utility bars.
+local function ResolveExtraBarFrames()
+  if state.extraBarFrames then
+    return state.extraBarFrames
+  end
+
+  local frames = {}
+
+  -- Bags bar (Dragonflight+ Edit Mode "Bag Bar" or legacy backpack buttons)
+  local bagsContainers = {
+    "BagsBar",
+    "MicroButtonAndBagsBar", -- older combined container
+  }
+  for _, name in ipairs(bagsContainers) do
+    local f = _G[name]
+    if f and f.GetAlpha and f.SetAlpha then
+      -- Container is the alpha target for show/hide
+      AddActionBarFrame(frames, f, "bags", true)
+    end
+  end
+
+  -- Common bags bar buttons (only added if they exist on this client)
+  local bagButtons = {
+    "BagsBarBackpack",
+    "BagsBarBag0",
+    "BagsBarBag1",
+    "BagsBarBag2",
+    "BagsBarBag3",
+    "MainMenuBarBackpackButton", -- pre-Dragonflight backpack
+    "CharacterBag0Slot",
+    "CharacterBag1Slot",
+    "CharacterBag2Slot",
+    "CharacterBag3Slot",
+  }
+  for _, name in ipairs(bagButtons) do
+    local btn = _G[name]
+    if btn and btn.GetAlpha and btn.SetAlpha then
+      -- Buttons participate in hover, but not alpha hiding
+      AddActionBarFrame(frames, btn, "bags", false)
+    end
+  end
+
+  -- Micro menu (Dragonflight+ "Micro Menu" bar and legacy micro buttons)
+  local microContainers = {
+    "MicroMenu",
+    "MicroButtonAndBagsBar", -- combined container also holds micro buttons
+  }
+  for _, name in ipairs(microContainers) do
+    local f = _G[name]
+    if f and f.GetAlpha and f.SetAlpha then
+      -- Container is the alpha target for show/hide
+      AddActionBarFrame(frames, f, "micro", true)
+    end
+  end
+
+  local microButtons = {
+    "CharacterMicroButton",
+    "SpellbookMicroButton",
+    "TalentMicroButton",
+    "AchievementMicroButton",
+    "QuestLogMicroButton",
+    "GuildMicroButton",
+    "LFDMicroButton",
+    "CollectionsMicroButton",
+    "EJMicroButton",
+    "StoreMicroButton",
+    "MainMenuMicroButton",
+    "AdventureGuideMicroButton",
+  }
+  for _, name in ipairs(microButtons) do
+    local btn = _G[name]
+    if btn and btn.GetAlpha and btn.SetAlpha then
+      -- Buttons participate in hover, but not alpha hiding
+      AddActionBarFrame(frames, btn, "micro", false)
+    end
+  end
+
+  if #frames == 0 then
+    frames = nil
+  end
+
+  state.extraBarFrames = frames
   return frames
 end
 
@@ -738,6 +807,42 @@ local function ShouldShowStanceBar()
   end
 
   if PFH_DB.actionBarHoverReveal and state.actionBarHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowBagsBar()
+  if not PFH_DB.enabled then
+    return true
+  end
+
+  local hideThis = PFH_DB.hideBagsBar and true or false
+
+  if not hideThis then
+    return true
+  end
+
+  if state.bagsHoverOverride then
+    return true
+  end
+
+  return false
+end
+
+local function ShouldShowMicroMenu()
+  if not PFH_DB.enabled then
+    return true
+  end
+
+  local hideThis = PFH_DB.hideMicroMenu and true or false
+
+  if not hideThis then
+    return true
+  end
+
+  if state.microHoverOverride then
     return true
   end
 
@@ -1161,8 +1266,33 @@ local function OnPlayerFrameLeave()
   end)
 end
 
-local function OnActionBarEnter()
+local function OnActionBarEnter(kind)
   if not PFH_DB.enabled then return end
+
+  if kind == "bags" then
+    if not PFH_DB.hideBagsBar then return end
+
+    if state.bagsHoverHideTimer then
+      state.bagsHoverHideTimer:Cancel()
+      state.bagsHoverHideTimer = nil
+    end
+
+    state.bagsHoverOverride = true
+    Apply()
+    return
+  elseif kind == "micro" then
+    if not PFH_DB.hideMicroMenu then return end
+
+    if state.microHoverHideTimer then
+      state.microHoverHideTimer:Cancel()
+      state.microHoverHideTimer = nil
+    end
+
+    state.microHoverOverride = true
+    Apply()
+    return
+  end
+
   if not PFH.AnyActionBarHideEnabled or not PFH.AnyActionBarHideEnabled() then return end
   if not PFH_DB.actionBarHoverReveal then return end
 
@@ -1175,7 +1305,55 @@ local function OnActionBarEnter()
   Apply()
 end
 
-local function OnActionBarLeave()
+local function OnActionBarLeave(kind)
+  if kind == "bags" then
+    if not PFH_DB.hideBagsBar then return end
+
+    if state.bagsHoverHideTimer then
+      state.bagsHoverHideTimer:Cancel()
+      state.bagsHoverHideTimer = nil
+    end
+
+    local delay = GetPlayerHoverHideDelay()
+
+    if delay <= 0 then
+      state.bagsHoverOverride = false
+      Apply()
+      return
+    end
+
+    state.bagsHoverHideTimer = C_Timer.NewTimer(delay, function()
+      state.bagsHoverHideTimer = nil
+      if not PFH_DB.hideBagsBar then return end
+      state.bagsHoverOverride = false
+      Apply()
+    end)
+    return
+  elseif kind == "micro" then
+    if not PFH_DB.hideMicroMenu then return end
+
+    if state.microHoverHideTimer then
+      state.microHoverHideTimer:Cancel()
+      state.microHoverHideTimer = nil
+    end
+
+    local delay = GetPlayerHoverHideDelay()
+
+    if delay <= 0 then
+      state.microHoverOverride = false
+      Apply()
+      return
+    end
+
+    state.microHoverHideTimer = C_Timer.NewTimer(delay, function()
+      state.microHoverHideTimer = nil
+      if not PFH_DB.hideMicroMenu then return end
+      state.microHoverOverride = false
+      Apply()
+    end)
+    return
+  end
+
   if not PFH.AnyActionBarHideEnabled or not PFH.AnyActionBarHideEnabled() then return end
   if not PFH_DB.actionBarHoverReveal then return end
 
@@ -1217,34 +1395,51 @@ local function ApplyActionBars()
   end
 
   local frames = ResolveActionBarFrames()
-  if not frames then
+  if frames then
+    for _, info in ipairs(frames) do
+      local wantVisible = true
+      if info.kind == "bar1" then
+        wantVisible = ShouldShowActionBar1()
+      elseif info.kind == "bar2" then
+        wantVisible = ShouldShowActionBar2()
+      elseif info.kind == "bar3" then
+        wantVisible = ShouldShowActionBar3()
+      elseif info.kind == "bar4" then
+        wantVisible = ShouldShowActionBar4()
+      elseif info.kind == "bar5" then
+        wantVisible = ShouldShowActionBar5()
+      elseif info.kind == "bar6" then
+        wantVisible = ShouldShowActionBar6()
+      elseif info.kind == "bar7" then
+        wantVisible = ShouldShowActionBar7()
+      elseif info.kind == "bar8" then
+        wantVisible = ShouldShowActionBar8()
+      elseif info.kind == "pet" then
+        wantVisible = ShouldShowPetBar()
+      elseif info.kind == "stance" then
+        wantVisible = ShouldShowStanceBar()
+      end
+      if info.alphaTarget ~= false then
+        SetSimpleFrameVisible(info.frame, wantVisible)
+      end
+    end
+  end
+
+  local extraFrames = ResolveExtraBarFrames()
+  if not extraFrames then
     return
   end
 
-  for _, info in ipairs(frames) do
+  for _, info in ipairs(extraFrames) do
     local wantVisible = true
-    if info.kind == "bar1" then
-      wantVisible = ShouldShowActionBar1()
-    elseif info.kind == "bar2" then
-      wantVisible = ShouldShowActionBar2()
-    elseif info.kind == "bar3" then
-      wantVisible = ShouldShowActionBar3()
-    elseif info.kind == "bar4" then
-      wantVisible = ShouldShowActionBar4()
-    elseif info.kind == "bar5" then
-      wantVisible = ShouldShowActionBar5()
-    elseif info.kind == "bar6" then
-      wantVisible = ShouldShowActionBar6()
-    elseif info.kind == "bar7" then
-      wantVisible = ShouldShowActionBar7()
-    elseif info.kind == "bar8" then
-      wantVisible = ShouldShowActionBar8()
-    elseif info.kind == "pet" then
-      wantVisible = ShouldShowPetBar()
-    elseif info.kind == "stance" then
-      wantVisible = ShouldShowStanceBar()
+    if info.kind == "bags" then
+      wantVisible = ShouldShowBagsBar()
+    elseif info.kind == "micro" then
+      wantVisible = ShouldShowMicroMenu()
     end
-    SetSimpleFrameVisible(info.frame, wantVisible)
+    if info.alphaTarget ~= false then
+      SetSimpleFrameVisible(info.frame, wantVisible)
+    end
   end
 end
 
@@ -1418,9 +1613,11 @@ local function HookOnce()
   -- Hook hover for action bars, pet bar, and stance bar to support
   -- alpha-hide with hover reveal.
   local frames = ResolveActionBarFrames()
-  if frames then
-    for _, info in ipairs(frames) do
+  local function HookHoverForFrames(list)
+    if not list then return end
+    for _, info in ipairs(list) do
       local f = info.frame
+      local kind = info.kind
       if f and f.HookScript and not f.PFH_ActionBarHooked then
         f.PFH_ActionBarHooked = true
         local objType = f.GetObjectType and f:GetObjectType() or nil
@@ -1436,11 +1633,18 @@ local function HookOnce()
             f:SetMouseMotionEnabled(true)
           end
         end
-        pcall(f.HookScript, f, "OnEnter", OnActionBarEnter)
-        pcall(f.HookScript, f, "OnLeave", OnActionBarLeave)
+        pcall(f.HookScript, f, "OnEnter", function()
+          OnActionBarEnter(kind)
+        end)
+        pcall(f.HookScript, f, "OnLeave", function()
+          OnActionBarLeave(kind)
+        end)
       end
     end
   end
+
+  HookHoverForFrames(frames)
+  HookHoverForFrames(ResolveExtraBarFrames())
 
   Apply()
 end
@@ -1477,6 +1681,8 @@ PFH.ShouldShowBuffFrame = ShouldShowBuffFrame
 PFH.ShouldShowActionBar1 = ShouldShowActionBar1
 PFH.ShouldShowPetBar = ShouldShowPetBar
 PFH.ShouldShowStanceBar = ShouldShowStanceBar
+PFH.ShouldShowBagsBar = ShouldShowBagsBar
+PFH.ShouldShowMicroMenu = ShouldShowMicroMenu
 
 PFH.ResolveWidgetFramesWithRetries = ResolveWidgetFramesWithRetries
 PFH.ResolveActionBarFramesOnce = ResolveActionBarFrames

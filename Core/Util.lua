@@ -4,6 +4,26 @@
 PlayerFrameHider = PlayerFrameHider or {}
 local PFH = PlayerFrameHider
 
+-- =========================================================
+-- SavedVariables helpers
+-- =========================================================
+
+-- Remove legacy PFH_* keys from the SavedVariables table.
+function PFH.CleanupLegacySavedVariables()
+  if not PFH_DB or type(PFH_DB) ~= "table" then return end
+
+  local toClear = {}
+  for k in pairs(PFH_DB) do
+    if type(k) == "string" and k:match("^PFH_") then
+      toClear[#toClear + 1] = k
+    end
+  end
+
+  for _, key in ipairs(toClear) do
+    PFH_DB[key] = nil
+  end
+end
+
 -- Clamp an alpha/opacity value into [0, 1].
 function PFH.ClampHiddenAlpha(value)
   if type(value) ~= "number" then
@@ -60,6 +80,27 @@ function PFH.NormalizeSeconds(value, defaultValue, minValue)
   end
 
   return v
+end
+
+-- =========================================================
+-- Cooldown manager helpers
+-- =========================================================
+
+-- Set the numeric cooldown display mode and derive the
+-- underlying boolean flags used elsewhere in the addon.
+function PFH.SetCooldownMode(mode)
+  local m = tonumber(mode) or 0
+  if m < 0 then
+    m = 0
+  elseif m > 3 then
+    m = 3
+  end
+
+  PFH_DB.cooldownDisplayMode = m
+
+  PFH_DB.controlEssentialCooldowns = (m >= 1)
+  PFH_DB.controlUtilityCooldowns   = (m >= 2)
+  PFH_DB.controlTrackedBuffs       = (m >= 3)
 end
 
 -- Return true if the player is in combat.
@@ -297,6 +338,8 @@ function PFH.AnyActionBarHideEnabled()
     or PFH_DB.hideActionBar8
     or PFH_DB.hidePetBar
     or PFH_DB.hideStanceBar
+    or PFH_DB.hideBagsBar
+    or PFH_DB.hideMicroMenu
 end
 
 -- =========================================================
