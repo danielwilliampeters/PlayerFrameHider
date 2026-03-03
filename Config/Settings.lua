@@ -452,43 +452,15 @@ function PFH.CreateSettingsPanel()
     local key = "playerFrameMode"
     local varName = VarNameFor(key)
 
-    -- Derive initial mode from existing booleans if needed.
-    if PFH_DB[key] == nil then
-      local hide = PFH_DB.hidePlayerFrame
-      if hide == nil then hide = DEFAULTS.hidePlayerFrame end
-      local showHurt = PFH_DB.showWhenHealthBelow100
-      if showHurt == nil then showHurt = DEFAULTS.showWhenHealthBelow100 end
-
-      local mode
-      if not hide then
-        mode = 0 -- Always show
-      elseif showHurt then
-        mode = 2 -- Hide + Health
-      else
-        mode = 1 -- Hide
-      end
-
-      PFH_DB[key] = mode
+    local current = tonumber(PFH_DB[key])
+    if current == nil then
+      current = tonumber(DEFAULTS.playerFrameMode) or 2
     end
-
-    local current = tonumber(PFH_DB[key]) or 0
     if current < 0 then current = 0 end
     if current > 2 then current = 2 end
     PFH_DB[key] = current
 
-    -- Default derived from original hidePlayerFrame/showWhenHealthBelow100 defaults.
-    local defaultValue
-    do
-      local hide = DEFAULTS.hidePlayerFrame
-      local showHurt = DEFAULTS.showWhenHealthBelow100
-      if not hide then
-        defaultValue = 0
-      elseif showHurt then
-        defaultValue = 2
-      else
-        defaultValue = 1
-      end
-    end
+    local defaultValue = tonumber(DEFAULTS.playerFrameMode) or 2
 
     local ok, setting = pcall(Settings.RegisterAddOnSetting,
       category,
@@ -613,8 +585,6 @@ function PFH.CreateSettingsPanel()
 
   AddPetFrameDropdown()
 
-  -- AddHeader("Cooldown Manager")
-
   AddCooldownDropdown()
 
   -- AddCheckbox(
@@ -631,8 +601,6 @@ function PFH.CreateSettingsPanel()
       0, 1, 0.05, DEFAULTS.cooldownHiddenAlpha or DEFAULTS.hiddenAlpha
     )
   end
-
-  -- AddHeader("Buffs")
 
   AddCheckbox(
     "hideBuffFrame",
@@ -656,8 +624,6 @@ function PFH.CreateSettingsPanel()
       0, 1, 0.05, DEFAULTS.buffHiddenAlpha or DEFAULTS.hiddenAlpha
     )
   end
-
-  -- AddHeader("Objective Tracker")
 
   AddCheckbox(
     "hideObjectiveTracker",
@@ -701,30 +667,6 @@ function PFH.CreateSettingsPanel()
       "showActionBar1WhenSkyriding",
       "Show While Skyriding",
       "Keeps Action Bar 1 visible while Skyriding."
-    )
-
-    AddCheckbox(
-      "hidePetBar",
-      "Hide Pet Bar",
-      "Hides the Pet Action Bar by default. Shown on mouseover."
-    )
-
-    AddCheckbox(
-      "hideStanceBar",
-      "Hide Stance Bar",
-      "Hides the Stance Bar by default. Shown on mouseover."
-    )
-
-    AddCheckbox(
-      "hideBagsBar",
-      "Hide Bag Bar",
-      "Hides the Bag Bar by default. Shown on mouseover."
-    )
-
-    AddCheckbox(
-      "hideMicroMenu",
-      "Hide Micro Menu",
-      "Hides the Micro Menu by default. Shown on mouseover."
     )
 
     AddCheckbox(
@@ -785,6 +727,30 @@ function PFH.CreateSettingsPanel()
         0, 1, 0.05, DEFAULTS.actionHiddenAlpha or DEFAULTS.hiddenAlpha
       )
     end
+
+    AddCheckbox(
+      "hidePetBar",
+      "Hide Pet Bar",
+      "Hides the Pet Action Bar by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideStanceBar",
+      "Hide Stance Bar",
+      "Hides the Stance Bar by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideBagsBar",
+      "Hide Bag Bar",
+      "Hides the Bag Bar by default. Shown on mouseover."
+    )
+
+    AddCheckbox(
+      "hideMicroMenu",
+      "Hide Micro Menu",
+      "Hides the Micro Menu by default. Shown on mouseover."
+    )
   end
 
   return category

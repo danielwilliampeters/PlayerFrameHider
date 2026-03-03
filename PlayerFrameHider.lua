@@ -18,7 +18,6 @@ PFH.OPTION_PANEL_NAME = PFH.OPTION_PANEL_NAME or "Player Frame Hider"
 
 PFH.DEFAULTS = {
   enabled = true,
-  hidePlayerFrame = true,
   playerFrameMode = 2, -- 0 = always show, 1 = hide, 2 = hide + health
   hideActionBar1 = false,
   hideActionBar2 = false,
@@ -45,7 +44,7 @@ PFH.DEFAULTS = {
   combatHoldSeconds = 3,
   showTargetMode = 1,
   showWhenHealthBelow100 = true,
-  petFrameMode = 1, -- 0 = always show, 1 = hide, 2 = auto (health)
+  petFrameMode = 2, -- 0 = always show, 1 = hide, 2 = auto (health)
   hoverRevealOutOfCombat = true,
   controlEssentialCooldowns = false,
   controlUtilityCooldowns = false,
@@ -228,35 +227,8 @@ function PFH.ApplyDefaults()
 
   ApplyNumberDefault("combatHoldSeconds", D.combatHoldSeconds or 0, 0)
 
-  -- migrate old hideOutOfCombat -> hidePlayerFrame
-  if PFH_DB.hidePlayerFrame == nil then
-    if PFH_DB.hideOutOfCombat ~= nil then
-      PFH_DB.hidePlayerFrame = PFH_DB.hideOutOfCombat and true or false
-    else
-      PFH_DB.hidePlayerFrame = D.hidePlayerFrame
-    end
-  end
-
-  -- Migrate between legacy booleans and the new playerFrameMode. For
-  -- legacy profiles (no playerFrameMode yet), derive a mode from the
-  -- old fields once. After that, playerFrameMode is the source of truth
-  -- and the booleans are considered legacy.
+  -- Seed playerFrameMode if missing, falling back to defaults.
   local mode = tonumber(PFH_DB.playerFrameMode)
-  if mode == nil then
-    local hide = PFH_DB.hidePlayerFrame
-    if hide == nil then hide = D.hidePlayerFrame end
-    local showHurt = PFH_DB.showWhenHealthBelow100
-    if showHurt == nil then showHurt = D.showWhenHealthBelow100 end
-
-    if not hide then
-      mode = 0 -- Always show
-    elseif showHurt then
-      mode = 2 -- Hide + Health
-    else
-      mode = 1 -- Hide
-    end
-  end
-
   if mode == nil then
     mode = tonumber(D.playerFrameMode) or 2
   end
@@ -1231,7 +1203,8 @@ end
 
 local function OnPlayerFrameEnter()
   if not PFH_DB.enabled then return end
-  if not PFH_DB.hidePlayerFrame then return end
+  local mode = tonumber(PFH_DB.playerFrameMode) or tonumber(PFH.DEFAULTS.playerFrameMode) or 2
+  if mode == 0 then return end -- "Always show" mode disables hover reveal
   if not PFH_DB.hoverRevealOutOfCombat then return end
   if PFH.IsInCombat() then return end
   if state.hoverHideTimer then
