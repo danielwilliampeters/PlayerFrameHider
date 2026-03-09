@@ -103,7 +103,11 @@ local function OnTargetOrZoneChanged()
   PFH.Apply()
 end
 
-local function OnUnitHealthChanged(unit)
+local function OnUnitHealthChanged(event, unit)
+  if event ~= "UNIT_HEALTH" then
+    return
+  end
+
   if unit == "player" then
     if PFH_DB.playerFrameMode ~= 2 then return end
     PFH.MarkHurt("player")
@@ -170,7 +174,7 @@ eventFrame:SetScript("OnEvent", function(_, event, unit)
     or event == "UNIT_ABSORB_AMOUNT_CHANGED"
     or event == "UNIT_HEAL_PREDICTION"
   then
-    OnUnitHealthChanged(unit)
+    OnUnitHealthChanged(event, unit)
     return
   end
 
