@@ -330,12 +330,21 @@ local function ShouldShowWidgets()
     return true -- addon disabled => do not hide widgets
   end
 
-  -- Never show the cooldown manager while the vehicle action bar is active.
-  if PFH.IsVehicleActionBarActive and PFH.IsVehicleActionBarActive() then
-    return false
+  -- In instances where "Always Show in Instances" is enabled, keep
+  -- widgets visible unconditionally, even if a transient vehicle
+  --/override bar appears (e.g. during certain delve or dungeon
+  -- interactions).
+  local inAlwaysShowInstance = PFH.IsAlwaysShowInstance and PFH.IsAlwaysShowInstance()
+
+  if not inAlwaysShowInstance then
+    -- Outside of "always show" instances, never show the cooldown
+    -- manager while the vehicle action bar is active.
+    if PFH.IsVehicleActionBarActive and PFH.IsVehicleActionBarActive() then
+      return false
+    end
   end
 
-  if PFH.IsAlwaysShowInstance() then return true end
+  if inAlwaysShowInstance then return true end
 
   if state.combatHoldWidgets then
     return true
