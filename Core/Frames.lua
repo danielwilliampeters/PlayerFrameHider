@@ -84,3 +84,7 @@ function PFH.ResolveWidgetFramesOnce()
     end
   end
 end
+
+-- Expose the name-hint finder for other modules that need to
+-- discover Blizzard UI frames introduced in newer patches.
+PFH.FindFrameByNameHint = FindFrameByNameHint

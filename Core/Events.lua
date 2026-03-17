@@ -27,6 +27,9 @@ local function OnLogin()
   if PFH.InitBuffFrame then
     PFH.InitBuffFrame()
   end
+  if PFH.InitDamageMeterFrame then
+    PFH.InitDamageMeterFrame()
+  end
   if PFH.ResolveActionBarFramesOnce then
     PFH.ResolveActionBarFramesOnce()
   end

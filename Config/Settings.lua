@@ -563,7 +563,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "alwaysShowInInstance",
     "Always Show in Instances",
-    "Forces the Player Frame, Cooldown Manager, Buffs, and Objective Tracker to stay visible in instances."
+    "Forces the Player Frame, Cooldown Manager, Buffs, Objective Tracker, and Damage Meter to stay visible in instances."
   )
 
   AddHeader("Frames")
@@ -653,6 +653,18 @@ function PFH.CreateSettingsPanel()
       0, 1, 0.05, DEFAULTS.objectiveHiddenAlpha or DEFAULTS.hiddenAlpha
     )
   end
+
+  AddCheckbox(
+    "hideDamageMeter",
+    "Hide Damage Meter",
+    "Hides the Blizzard Damage Meter by default. Shown again when you enter combat or move your mouse over it."
+  )
+
+  AddCheckbox(
+    "showDamageMeterInCombat",
+    "Show Damage Meter in Combat",
+    "Keeps the Damage Meter visible while you are in combat, even when it is hidden out of combat."
+  )
 
   if ENABLE_ACTION_BARS then
     AddHeader("Bars")

@@ -2,7 +2,7 @@
 ## Title: Player Frame Hider
 ## Notes: Toggle visibility rules for the PlayerFrame and cooldowns/buffs. /pfh
 ## Author: Daniel Peters
-## Version: 10
+## Version: 11
 ## SavedVariables: PFH_DB
 ## Category: Unit Frames
 ## IconTexture: Interface\AddOns\PlayerFrameHider\Assets\Icons\icon
@@ -11,6 +11,8 @@
 
 Core/Util.lua
 Core/Frames.lua
+Core/DamageMeter.lua
+Core/ObjectiveTracker.lua
 PlayerFrameHider.lua
 Config/Settings.lua
 Core/Events.lua
