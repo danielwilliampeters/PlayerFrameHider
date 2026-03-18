@@ -352,7 +352,7 @@ function PFH.CreateSettingsPanel()
       return container:GetData()
     end
 
-    local tooltip = "Choose which parts of the Blizzard Cooldown Manager are shown or hidden automatically.\n\nVisibility rules control when it is shown.\n\nMay require a UI reload."
+    local tooltip = "Choose which parts of the Cooldown Manager are shown or hidden automatically.\n\nVisibility rules control when it is shown.\n\nMay require a UI reload."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetCooldownOptions, tooltip)
@@ -418,7 +418,7 @@ function PFH.CreateSettingsPanel()
       return container:GetData()
     end
 
-    local tooltip = "Controls when the Blizzard Pet Frame is hidden and when it becomes visible again.\n\nAlways Show: The Pet Frame is never hidden.\nHide: The Pet Frame is hidden by default and shown based on your visibility rules (combat/target).\nAuto: Hidden by default and also briefly shown when your pet's health changes."
+    local tooltip = "Controls when the Pet Frame is hidden and when it becomes visible again.\n\nAlways Show: The Pet Frame is never hidden.\nHide: The Pet Frame is hidden by default and shown based on your visibility rules (combat/target).\nAuto: Hidden by default and also briefly shown when your pet's health changes."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetPetFrameOptions, tooltip)
@@ -483,7 +483,7 @@ function PFH.CreateSettingsPanel()
       return container:GetData()
     end
 
-    local tooltip = "Controls when the Blizzard Player Frame is hidden and when it becomes visible again.\n\nAlways Show: The Player Frame is never hidden.\nHide: Hidden by default and shown based on your visibility rules (combat/target).\nAuto: Hidden by default and also briefly shown when your health changes."
+    local tooltip = "Controls when the Player Frame is hidden and when it becomes visible again.\n\nAlways Show: The Player Frame is never hidden.\nHide: Hidden by default and shown based on your visibility rules (combat/target).\nAuto: Hidden by default and also briefly shown when your health changes."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetPlayerFrameOptions, tooltip)
@@ -605,7 +605,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "hideBuffFrame",
     "Hide Buff Frame",
-    "Hides the Blizzard Buff Frame when idle and shows it again when your buffs change.\n\nHovering over the Buff Frame temporarily reveals it."
+    "Hides the Buff Frame by default. Shown again when your buffs change or you move your mouse over it."
   )
 
   if ENABLE_HOVER_REVEAL_BUFFS then
@@ -628,7 +628,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "hideObjectiveTracker",
     "Hide Objective Tracker",
-    "Automatically hides the Objective Tracker when idle and shows it again when objectives update.\n\nHovering over the tracker temporarily reveals it."
+    "Hides the Objective Tracker by default. Shown again when objectives update or you move your mouse over it."
   )
 
   if ENABLE_HOVER_REVEAL_OBJECTIVES then
@@ -657,7 +657,7 @@ function PFH.CreateSettingsPanel()
   AddCheckbox(
     "hideDamageMeter",
     "Hide Damage Meter",
-    "Hides the Blizzard Damage Meter by default. Shown again when you enter combat or move your mouse over it."
+    "Hides the Damage Meter by default. Shown again when you enter combat or move your mouse over it."
   )
 
   AddCheckbox(
@@ -672,7 +672,7 @@ function PFH.CreateSettingsPanel()
     AddCheckbox(
       "hideActionBar1",
       "Hide Action Bar 1",
-      "Hides Action Bar 1 by default. Shown on mouseover."
+      "Hides Action Bar 1 by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
@@ -684,43 +684,43 @@ function PFH.CreateSettingsPanel()
     AddCheckbox(
       "hideActionBar2",
       "Hide Action Bar 2",
-      "Hides Action Bar 2 by default. Shown on mouseover."
+      "Hides Action Bar 2 by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideActionBar3",
       "Hide Action Bar 3",
-      "Hides Action Bar 3 by default. Shown on mouseover."
+      "Hides Action Bar 3 by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideActionBar4",
       "Hide Action Bar 4",
-      "Hides Action Bar 4 by default. Shown on mouseover."
+      "Hides Action Bar 4 by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideActionBar5",
       "Hide Action Bar 5",
-      "Hides Action Bar 5 by default. Shown on mouseover."
+      "Hides Action Bar 5 by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideActionBar6",
       "Hide Action Bar 6",
-      "Hides Action Bar 6 by default. Shown on mouseover."
+      "Hides Action Bar 6 by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideActionBar7",
       "Hide Action Bar 7",
-      "Hides Action Bar 7 by default. Shown on mouseover."
+      "Hides Action Bar 7 by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideActionBar8",
       "Hide Action Bar 8",
-      "Hides Action Bar 8 by default. Shown on mouseover."
+      "Hides Action Bar 8 by default. Shown again when you move your mouse over it."
     )
 
     if ENABLE_HOVER_REVEAL_ACTION_BARS then
@@ -743,25 +743,25 @@ function PFH.CreateSettingsPanel()
     AddCheckbox(
       "hidePetBar",
       "Hide Pet Bar",
-      "Hides the Pet Action Bar by default. Shown on mouseover."
+      "Hides the Pet Action Bar by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideStanceBar",
       "Hide Stance Bar",
-      "Hides the Stance Bar by default. Shown on mouseover."
+      "Hides the Stance Bar by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideBagsBar",
       "Hide Bag Bar",
-      "Hides the Bag Bar by default. Shown on mouseover."
+      "Hides the Bag Bar by default. Shown again when you move your mouse over it."
     )
 
     AddCheckbox(
       "hideMicroMenu",
       "Hide Micro Menu",
-      "Hides the Micro Menu by default. Shown on mouseover."
+      "Hides the Micro Menu by default. Shown again when you move your mouse over it."
     )
   end
 
