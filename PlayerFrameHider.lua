@@ -470,15 +470,15 @@ local function ResolveActionBarFrames()
     AddActionBarFrame(frames, stance, "stance")
   end
 
-  -- Action Bar 1 buttons
+  -- Add individual buttons for hover detection but NOT alpha control (alphaTarget = false)
+  -- This allows hover-to-reveal without conflicting with Blizzard's proc/highlight system
   for i = 1, 12 do
     local btn = _G["ActionButton" .. i]
     if btn and btn.GetAlpha and btn.SetAlpha then
-      AddActionBarFrame(frames, btn, "bar1")
+      AddActionBarFrame(frames, btn, "bar1", false)
     end
   end
 
-  -- Multi-bar buttons mapped to the corresponding action bar number
   local multiButtonPrefixes = {
     { prefix = "MultiBarBottomLeftButton", kind = "bar2" },
     { prefix = "MultiBarBottomRightButton", kind = "bar3" },
@@ -492,24 +492,22 @@ local function ResolveActionBarFrames()
     for i = 1, 12 do
       local btn = _G[info.prefix .. i]
       if btn and btn.GetAlpha and btn.SetAlpha then
-        AddActionBarFrame(frames, btn, info.kind)
+        AddActionBarFrame(frames, btn, info.kind, false)
       end
     end
   end
 
-  -- Pet action buttons
   for i = 1, 10 do
     local btn = _G["PetActionButton" .. i]
     if btn and btn.GetAlpha and btn.SetAlpha then
-      AddActionBarFrame(frames, btn, "pet")
+      AddActionBarFrame(frames, btn, "pet", false)
     end
   end
 
-  -- Stance buttons
   for i = 1, 10 do
     local btn = _G["StanceButton" .. i]
     if btn and btn.GetAlpha and btn.SetAlpha then
-      AddActionBarFrame(frames, btn, "stance")
+      AddActionBarFrame(frames, btn, "stance", false)
     end
   end
 
@@ -850,9 +848,11 @@ local function HookBuffFrameOnce()
   state.buffHooked = true
   state.BuffFrame = frame
 
-  if frame.EnableMouse then
-    frame:EnableMouse(true)
-  end
+  state.buffHoverOverride = false
+  state.buffChangeOverride = false
+  Apply()
+
+  if frame.EnableMouse then frame:EnableMouse(true) end
 
   frame:HookScript("OnEnter", OnBuffFrameEnter)
   frame:HookScript("OnLeave", OnBuffFrameLeave)
@@ -1437,8 +1437,18 @@ local function HookOnce()
   PlayerFrame:HookScript("OnEnter", OnPlayerFrameEnter)
   PlayerFrame:HookScript("OnLeave", OnPlayerFrameLeave)
 
-  -- Hook hover for action bars, pet bar, and stance bar to support
-  -- alpha-hide with hover reveal.
+  -- Clear all hover/change overrides to prevent stuck visible state during init
+  state.hoverOverride = false
+  state.objectiveHoverOverride = false
+  state.buffHoverOverride = false
+  state.buffChangeOverride = false
+  state.damageMeterHoverOverride = false
+  state.actionBarHoverOverride = false
+  state.bagsHoverOverride = false
+  state.microHoverOverride = false
+
+  Apply()
+
   local frames = ResolveActionBarFrames()
   local function HookHoverForFrames(list)
     if not list then return end
@@ -1449,17 +1459,11 @@ local function HookOnce()
         f.PFH_ActionBarHooked = true
         local objType = f.GetObjectType and f:GetObjectType() or nil
 
-        -- For container/background frames, ensure they can see hover
-        -- without interfering with button clicks. For actual buttons,
-        -- leave mouse settings alone so Blizzard click handling works.
         if objType ~= "Button" and objType ~= "CheckButton" then
-          if f.EnableMouse then
-            f:EnableMouse(true)
-          end
-          if f.SetMouseMotionEnabled then
-            f:SetMouseMotionEnabled(true)
-          end
+          if f.EnableMouse then f:EnableMouse(true) end
+          if f.SetMouseMotionEnabled then f:SetMouseMotionEnabled(true) end
         end
+
         pcall(f.HookScript, f, "OnEnter", function()
           OnActionBarEnter(kind)
         end)

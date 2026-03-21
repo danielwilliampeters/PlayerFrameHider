@@ -7,6 +7,11 @@ local state = PFH.state or {}
 local ClampHiddenAlpha = PFH.ClampHiddenAlpha
 local NormalizeSeconds = PFH.NormalizeSeconds
 
+-- Startup flicker prevention: suppress auto-show for 3s after last quest event
+local objectiveInitTime = 0
+local lastQuestEventTime = 0
+local startupGracePeriod = 3.0
+
 local function GetObjectiveHoverHideDelay()
   local defaultSeconds = PFH.DEFAULTS and PFH.DEFAULTS.objectiveHoverHideDelay or 1.0
   return NormalizeSeconds(PFH_DB and PFH_DB.objectiveHoverHideDelay, defaultSeconds, 0)
@@ -119,6 +124,18 @@ local function OnObjectiveUpdated()
   if not PFH_DB.hideObjectiveTracker then return end
   if not PFH_DB.showObjectiveUpdates then return end
 
+  local now = GetTime()
+  local timeSinceInit = now - objectiveInitTime
+  
+  if timeSinceInit < 30.0 then
+    lastQuestEventTime = now
+  end
+  
+  -- Suppress auto-show during login quest spam (3s after last event, 30s max)
+  if now - lastQuestEventTime < startupGracePeriod and timeSinceInit < 30.0 then
+    return
+  end
+
   if state.objectiveHoverHideTimer then
     state.objectiveHoverHideTimer:Cancel()
     state.objectiveHoverHideTimer = nil
@@ -151,24 +168,27 @@ local function HookObjectiveOnce()
   state.objectiveHooked = true
   state.ObjectiveFrame = frame
 
+  local now = GetTime()
+  objectiveInitTime = now
+  lastQuestEventTime = now
+  state.objectiveHoverOverride = false
+
+  if PFH.Apply then PFH.Apply() end
+
   if frame.SetHitRectInsets then
     local l, r, t, b = frame:GetHitRectInsets()
     l, r, t, b = l or 0, r or 0, t or 0, b or 0
     frame:SetHitRectInsets(l - 10, r + 10, t - 10, b + 10)
   end
 
-  if frame.EnableMouse then
-    frame:EnableMouse(true)
-  end
+  if frame.EnableMouse then frame:EnableMouse(true) end
 
   if frame.HookScript then
     frame:HookScript("OnEnter", OnObjectiveEnter)
     frame:HookScript("OnLeave", OnObjectiveLeave)
   end
 
-  if PFH.Apply then
-    PFH.Apply()
-  end
+  if PFH.Apply then PFH.Apply() end
 end
 
 local function InitObjectiveFrame()

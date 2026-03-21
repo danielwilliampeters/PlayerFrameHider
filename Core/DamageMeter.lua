@@ -135,6 +135,9 @@ local function HookDamageMeterOnce()
 
   state.damageMeterHooked = true
   state.DamageMeterFrame = frame
+  state.damageMeterHoverOverride = false
+
+  if PFH.Apply then PFH.Apply() end
 
   local function HookHover(target)
     if not target or target.PFH_DamageMeterHoverHooked then
@@ -175,9 +178,7 @@ local function HookDamageMeterOnce()
   HookHover(frame)
   HookChildrenRecursive(frame)
 
-  if PFH.Apply then
-    PFH.Apply()
-  end
+  if PFH.Apply then PFH.Apply() end
 end
 
 local function InitDamageMeterFrame()
