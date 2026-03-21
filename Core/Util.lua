@@ -166,35 +166,14 @@ function PFH.IsAlwaysShowInstance()
   return PFH.IsRelevantInstance()
 end
 
--- Return true if the player is in a Skyriding/Dragonriding-like
--- state, based primarily on the Vigor (AlternateMount) power bar.
+-- Return true if the player is mounted
 function PFH.IsSkyRidingLike()
-  -- Skyriding Vigor power bar (AlternateMount).
-  if Enum and Enum.PowerType and Enum.PowerType.AlternateMount and UnitPowerMax then
-    local okVigor, maxVigor = pcall(UnitPowerMax, "player", Enum.PowerType.AlternateMount)
-    if okVigor and type(maxVigor) == "number" and maxVigor > 0 then
-      return true
-    end
-  end
-
-  -- Fallback: mounted and actually flying (pre-Dragonflight clients or edge cases).
   if not IsMounted then
     return false
   end
 
   local okMounted, mounted = pcall(IsMounted)
-  if not okMounted or not mounted then
-    return false
-  end
-
-  if IsFlying then
-    local okFlying, flying = pcall(IsFlying)
-    if okFlying and flying then
-      return true
-    end
-  end
-
-  return false
+  return okMounted and mounted
 end
 
 -- Return true if a vehicle-style action bar is currently active.
