@@ -37,19 +37,19 @@ function PFH.ClampHiddenAlpha(value)
 end
 
 -- Convert fade duration mode (integer) to seconds (float).
--- 0 = Off (0s), 1 = Fast (0.08s), 2 = Medium (0.18s), 3 = Slow (0.3s)
+-- 0 = Off (0s), 1 = Fast (0.07s), 2 = Smooth (0.11s), 3 = Slow (0.16s)
 function PFH.GetFadeDurationSeconds()
   local mode = tonumber(PFH_DB.fadeDuration) or 2
   if mode <= 0 then
     return 0
   elseif mode == 1 then
-    return 0.08
+    return 0.07
   elseif mode == 2 then
-    return 0.18
+    return 0.11
   elseif mode >= 3 then
-    return 0.3
+    return 0.16
   end
-  return 0.08
+  return 0.07
 end
 
 -- =========================================================

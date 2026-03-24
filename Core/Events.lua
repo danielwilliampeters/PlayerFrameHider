@@ -23,6 +23,9 @@ local function OnLogin()
     PFH.CreateSettingsPanel()
   end
   PFH.InitPlayerFrame()
+  if PFH.HookTargetFocusFrames then
+    PFH.HookTargetFocusFrames()
+  end
   PFH.InitObjectiveFrame()
   if PFH.InitBuffFrame then
     PFH.InitBuffFrame()

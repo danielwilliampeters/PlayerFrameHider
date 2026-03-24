@@ -62,7 +62,7 @@ PFH.DEFAULTS = {
   actionBarHoverReveal = true,
   hideDamageMeter = false,
   showDamageMeterInCombat = false,
-  fadeDuration = 2, -- 0 = off, 1 = fast, 2 = normal, 3 = slow
+  fadeDuration = 1,
 }
 
 -- =========================================================
@@ -1497,6 +1497,45 @@ local function HookOnce()
   Apply()
 end
 
+-- Hook TargetFrame and FocusFrame to use fade animations when showing
+local function HookTargetFocusFrames()
+  local function HookFrameFades(frame)
+    if not frame or frame.PFH_FadeHooked then return end
+    
+    frame.PFH_FadeHooked = true
+    
+    -- Hook OnShow to fade in with Fast speed (mode 1) if fade is enabled
+    if frame.HookScript then
+      frame:HookScript("OnShow", function(self)
+        -- Only fade if user has fade duration enabled (not set to Off/0)
+        local userFadeMode = PFH_DB.fadeDuration
+        if userFadeMode and userFadeMode > 0 then
+          if self.SetAlpha then
+            self:SetAlpha(0)
+            -- Temporarily force Fast mode (1) for target/focus frames
+            PFH_DB.fadeDuration = 1  -- Fast
+            FadeFrameAlpha(self, 1)
+            PFH_DB.fadeDuration = userFadeMode
+          end
+        end
+      end)
+    end
+  end
+  
+  -- Wait for frames to exist before hooking
+  C_Timer.After(0.5, function()
+    local targetFrame = _G.TargetFrame
+    if targetFrame then
+      HookFrameFades(targetFrame)
+    end
+    
+    local focusFrame = _G.FocusFrame
+    if focusFrame then
+      HookFrameFades(focusFrame)
+    end
+  end)
+end
+
 local function InitPlayerFrame()
   local tries = 0
   local ticker
@@ -1541,6 +1580,7 @@ PFH.ApplyWidget = ApplyWidget
 PFH.Apply = Apply
 
 PFH.HookOnce = HookOnce
+PFH.HookTargetFocusFrames = HookTargetFocusFrames
 PFH.InitPlayerFrame = InitPlayerFrame
 PFH.InitWorldMapHooks = InitWorldMapHooks
 PFH.InitBuffFrame = InitBuffFrame
