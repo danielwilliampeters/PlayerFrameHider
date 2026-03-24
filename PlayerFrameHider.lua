@@ -62,6 +62,7 @@ PFH.DEFAULTS = {
   actionBarHoverReveal = true,
   hideDamageMeter = false,
   showDamageMeterInCombat = false,
+  fadeDuration = 2, -- 0 = off, 1 = fast, 2 = normal, 3 = slow
 }
 
 -- =========================================================
@@ -154,6 +155,7 @@ local Apply
 
 -- Utility helpers (implemented in Core/Util.lua)
 local ClampHiddenAlpha = PFH.ClampHiddenAlpha
+local FadeFrameAlpha = PFH.FadeFrameAlpha
 local ApplyDefault = PFH.ApplyDefault
 local ApplyNumberDefault = PFH.ApplyNumberDefault
 local NormalizeSeconds = PFH.NormalizeSeconds
@@ -216,6 +218,25 @@ function PFH.ApplyDefaults()
   ApplyNumberDefault("buffHoverHideDelay", D.buffHoverHideDelay, 0)
   ApplyNumberDefault("playerHoverHideDelay", D.playerHoverHideDelay, 0)
   ApplyNumberDefault("hurtGraceSeconds", D.hurtGraceSeconds or 0, 0)
+  ApplyNumberDefault("fadeDuration", D.fadeDuration or 2, 0)
+  
+  -- Clamp fadeDuration to valid mode values (0-3)
+  -- Migrate legacy float values to integer modes
+  local fadeMode = tonumber(PFH_DB.fadeDuration) or 2
+  if fadeMode > 0 and fadeMode < 1 then
+    -- Legacy float value, convert to nearest mode
+    if fadeMode <= 0.12 then
+      fadeMode = 1 -- Fast
+    elseif fadeMode <= 0.4 then
+      fadeMode = 2 -- Normal
+    else
+      fadeMode = 3 -- Slow
+    end
+  end
+  if fadeMode < 0 then fadeMode = 0 end
+  if fadeMode > 3 then fadeMode = 3 end
+  PFH_DB.fadeDuration = fadeMode
+  
   ApplyNumberDefault("hiddenAlpha", D.hiddenAlpha, 0)
   PFH_DB.hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha)
 
@@ -931,13 +952,13 @@ local function SetPlayerFrameVisible(wantVisible)
 
   if wantVisible then
     state.playerFrameHidden = false
-    if PlayerFrame:GetAlpha() ~= 1 then PlayerFrame:SetAlpha(1) end
+    FadeFrameAlpha(PlayerFrame, 1)
     if not inLockdown then
       PlayerFrame:EnableMouse(true)
     end
   else
     state.playerFrameHidden = true
-    if PlayerFrame:GetAlpha() ~= hiddenAlpha then PlayerFrame:SetAlpha(hiddenAlpha) end
+    FadeFrameAlpha(PlayerFrame, hiddenAlpha)
     if not inLockdown then
       if PFH_DB.hoverRevealOutOfCombat then
         PlayerFrame:EnableMouse(true)
@@ -955,9 +976,9 @@ local function SetPetFrameVisible(wantVisible)
   local hiddenAlpha = ClampHiddenAlpha(PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
-    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+    FadeFrameAlpha(frame, 1)
   else
-    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
+    FadeFrameAlpha(frame, hiddenAlpha)
   end
 end
 
@@ -968,9 +989,9 @@ local function SetBuffFrameVisible(wantVisible)
   local hiddenAlpha = ClampHiddenAlpha(PFH_DB.buffHiddenAlpha or PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
-    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+    FadeFrameAlpha(frame, 1)
   else
-    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
+    FadeFrameAlpha(frame, hiddenAlpha)
   end
 end
 
@@ -980,13 +1001,9 @@ local function SetSimpleFrameVisible(frame, wantVisible)
   local hiddenAlpha = ClampHiddenAlpha(PFH_DB.actionHiddenAlpha or PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
-    if frame:GetAlpha() ~= 1 then
-      frame:SetAlpha(1)
-    end
+    FadeFrameAlpha(frame, 1)
   else
-    if frame:GetAlpha() ~= hiddenAlpha then
-      frame:SetAlpha(hiddenAlpha)
-    end
+    FadeFrameAlpha(frame, hiddenAlpha)
   end
 end
 
@@ -1034,12 +1051,12 @@ local function SetWidgetVisible(frame, wantVisible)
   local hiddenAlpha = ClampHiddenAlpha(PFH_DB.cooldownHiddenAlpha or PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
-    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+    FadeFrameAlpha(frame, 1)
     if not InCombatLockdown() then
       SetViewerMouseEnabled(frame, true)
     end
   else
-    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
+    FadeFrameAlpha(frame, hiddenAlpha)
     if hiddenAlpha < 0.99 and not InCombatLockdown() then
       SetViewerMouseEnabled(frame, false)
     end

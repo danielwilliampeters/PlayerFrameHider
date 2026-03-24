@@ -542,6 +542,29 @@ function PFH.CreateSettingsPanel()
     end
   end
 
+  local function AddFadeDurationDropdown()
+    local key = "fadeDuration"
+    local defaultValue = DEFAULTS[key] or 2
+
+    local setting = RegisterSetting(key, "Fade Speed", defaultValue)
+    OnChangedFor(key, setting)
+
+    local function GetFadeOptions()
+      local container = Settings.CreateControlTextContainer()
+      container:Add(0, "None")
+      container:Add(1, "Fast")
+      container:Add(2, "Medium")
+      container:Add(3, "Slow")
+      return container:GetData()
+    end
+
+    local tooltip = "Controls how quickly supported frames fade in and out when they are shown or hidden."
+
+    if Settings.CreateDropdown and Settings.CreateControlTextContainer then
+      Settings.CreateDropdown(category, setting, GetFadeOptions, tooltip)
+    end
+  end
+
   AddCheckbox(
     "enabled",
     "Enable Player Frame Hider",
@@ -565,6 +588,8 @@ function PFH.CreateSettingsPanel()
     "Always Show in Instances",
     "Forces the Player Frame, Cooldown Manager, Buffs, Objective Tracker, and Damage Meter to stay visible in instances."
   )
+
+  AddFadeDurationDropdown()
 
   AddHeader("Frames")
 

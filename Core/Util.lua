@@ -36,6 +36,99 @@ function PFH.ClampHiddenAlpha(value)
   return value
 end
 
+-- Convert fade duration mode (integer) to seconds (float).
+-- 0 = Off (0s), 1 = Fast (0.08s), 2 = Medium (0.18s), 3 = Slow (0.3s)
+function PFH.GetFadeDurationSeconds()
+  local mode = tonumber(PFH_DB.fadeDuration) or 2
+  if mode <= 0 then
+    return 0
+  elseif mode == 1 then
+    return 0.08
+  elseif mode == 2 then
+    return 0.18
+  elseif mode >= 3 then
+    return 0.3
+  end
+  return 0.08
+end
+
+-- =========================================================
+-- Frame fade animation
+-- =========================================================
+
+-- Track which frames have been initialized to prevent fade-in on load
+PFH.frameAlphaInitialized = PFH.frameAlphaInitialized or {}
+
+-- Smoothly fade a frame's alpha from its current value to targetAlpha
+-- over the configured fadeDuration. If fadeDuration is 0 or nil, sets
+-- alpha immediately. On first call for each frame, sets immediately to
+-- avoid unwanted fade effects during initial UI setup.
+function PFH.FadeFrameAlpha(frame, targetAlpha, onComplete)
+  if not frame or not frame.GetAlpha or not frame.SetAlpha then
+    return
+  end
+
+  -- Cancel any existing fade for this frame
+  local frameKey = tostring(frame)
+  if PFH.timers[frameKey] then
+    PFH.timers[frameKey]:Cancel()
+    PFH.timers[frameKey] = nil
+  end
+
+  -- On first call for this frame, set immediately (no fade) to establish
+  -- initial state correctly. This prevents visible frames from fading out
+  -- on login/reload when they should start hidden.
+  if not PFH.frameAlphaInitialized[frameKey] then
+    PFH.frameAlphaInitialized[frameKey] = true
+    frame:SetAlpha(targetAlpha)
+    if onComplete then onComplete() end
+    return
+  end
+
+  local fadeDuration = PFH.GetFadeDurationSeconds and PFH.GetFadeDurationSeconds() or 0
+  if fadeDuration <= 0 then
+    -- Instant change
+    frame:SetAlpha(targetAlpha)
+    if onComplete then onComplete() end
+    return
+  end
+
+  local startAlpha = frame:GetAlpha()
+  local deltaAlpha = targetAlpha - startAlpha
+
+  -- If already at target, no need to animate
+  if math.abs(deltaAlpha) < 0.001 then
+    if onComplete then onComplete() end
+    return
+  end
+
+  local elapsed = 0
+  local updateInterval = 0.016 -- ~60 FPS
+
+  PFH.timers[frameKey] = C_Timer.NewTicker(updateInterval, function()
+    elapsed = elapsed + updateInterval
+
+    if elapsed >= fadeDuration then
+      -- Animation complete
+      frame:SetAlpha(targetAlpha)
+      if PFH.timers[frameKey] then
+        PFH.timers[frameKey]:Cancel()
+        PFH.timers[frameKey] = nil
+      end
+      if onComplete then onComplete() end
+    else
+      -- Interpolate alpha
+      local progress = elapsed / fadeDuration
+      local newAlpha = startAlpha + (deltaAlpha * progress)
+      frame:SetAlpha(newAlpha)
+    end
+  end)
+end
+
+-- =========================================================
+-- SavedVariables defaults
+-- =========================================================
+
 -- Apply a default value for a DB key if it is currently nil.
 function PFH.ApplyDefault(key, value)
   if PFH_DB and PFH_DB[key] == nil then

@@ -76,9 +76,17 @@ local function SetObjectiveTrackerVisible(wantVisible)
   local hiddenAlpha = ClampHiddenAlpha(PFH_DB.objectiveHiddenAlpha or PFH_DB.hiddenAlpha or 0)
 
   if wantVisible then
-    if frame:GetAlpha() ~= 1 then frame:SetAlpha(1) end
+    if PFH.FadeFrameAlpha then
+      PFH.FadeFrameAlpha(frame, 1)
+    else
+      frame:SetAlpha(1)
+    end
   else
-    if frame:GetAlpha() ~= hiddenAlpha then frame:SetAlpha(hiddenAlpha) end
+    if PFH.FadeFrameAlpha then
+      PFH.FadeFrameAlpha(frame, hiddenAlpha)
+    else
+      frame:SetAlpha(hiddenAlpha)
+    end
   end
 end
 
