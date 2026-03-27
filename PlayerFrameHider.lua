@@ -1045,6 +1045,53 @@ local function SetViewerMouseEnabled(viewer, enabled)
   end
 end
 
+-- Enable tooltips (motion) but disable clicks so camera controls work through widgets
+local function SetViewerMouseForTooltips(viewer)
+  if not viewer or type(viewer) ~= "table" then return end
+
+  local function ForEachActiveInPool(pool, callback)
+    if not pool or type(pool) ~= "table" then return end
+
+    if type(pool.EnumerateActive) == "function" then
+      for item in pool:EnumerateActive() do
+        callback(item)
+      end
+    elseif type(pool.activeObjects) == "table" then
+      for item in pairs(pool.activeObjects) do
+        callback(item)
+      end
+    end
+  end
+
+  local function SetMouseOnItem(item)
+    if not item then return end
+    -- Enable mouse and motion for tooltips
+    if item.EnableMouse then
+      item:EnableMouse(true)
+    end
+    if item.SetMouseMotionEnabled then
+      item:SetMouseMotionEnabled(true)
+    end
+    -- Disable clicks so RMB camera works
+    if item.SetMouseClickEnabled then
+      item:SetMouseClickEnabled(false)
+    end
+  end
+
+  ForEachActiveInPool(viewer.itemFramePool, SetMouseOnItem)
+  ForEachActiveInPool(viewer.pandemicIconPool, SetMouseOnItem)
+
+  if viewer.EnableMouse then
+    viewer:EnableMouse(true)
+  end
+  if viewer.SetMouseMotionEnabled then
+    viewer:SetMouseMotionEnabled(true)
+  end
+  if viewer.SetMouseClickEnabled then
+    viewer:SetMouseClickEnabled(false)
+  end
+end
+
 local function SetWidgetVisible(frame, wantVisible)
   if not frame or not frame.SetAlpha then return end
 
@@ -1052,8 +1099,9 @@ local function SetWidgetVisible(frame, wantVisible)
 
   if wantVisible then
     FadeFrameAlpha(frame, 1)
+    -- Enable tooltips but disable clicks so camera controls (RMB) work through the widget
     if not InCombatLockdown() then
-      SetViewerMouseEnabled(frame, true)
+      SetViewerMouseForTooltips(frame)
     end
   else
     FadeFrameAlpha(frame, hiddenAlpha)
