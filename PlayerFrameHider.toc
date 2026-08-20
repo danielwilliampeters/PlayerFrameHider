@@ -1,8 +1,8 @@
-## Interface: 120000
+## Interface: 120100
 ## Title: Player Frame Hider
 ## Notes: Toggle visibility rules for the PlayerFrame and cooldowns/buffs. /pfh
 ## Author: Daniel Peters
-## Version: 14
+## Version: 15
 ## SavedVariables: PFH_DB
 ## Category: Unit Frames
 ## IconTexture: Interface\AddOns\PlayerFrameHider\Assets\Icons\icon
