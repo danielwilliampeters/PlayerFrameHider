@@ -1335,9 +1335,9 @@ end
 -- =========================================================
 
 Apply = function()
-  if not PlayerFrame then return end
-
-  SetPlayerFrameVisible(ShouldShowPlayerFrame())
+  if PlayerFrame then
+    SetPlayerFrameVisible(ShouldShowPlayerFrame())
+  end
   SetPetFrameVisible(ShouldShowPetFrame())
   if PFH.SetObjectiveTrackerVisible and PFH.ShouldShowObjectiveTracker then
     PFH.SetObjectiveTrackerVisible(PFH.ShouldShowObjectiveTracker())

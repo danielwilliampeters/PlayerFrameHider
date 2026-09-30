@@ -4,6 +4,7 @@ local PFH = PlayerFrameHider
 local state = PFH.state
 
 local DEFAULTS = PFH.DEFAULTS
+local IS_FOREVER_BETA = select(4, GetBuildInfo()) == 16001
 
 -- Guard to prevent re-entrant Settings callbacks when values
 -- are updated programmatically.
@@ -24,6 +25,10 @@ local ENABLE_HOVER_REVEAL_BUFFS = false
 
 -- Create (and cache) the Retail Settings panel.
 function PFH.CreateSettingsPanel()
+  if IS_FOREVER_BETA then
+    return nil
+  end
+
   if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnCategory) then
     return nil
   end
@@ -284,7 +289,7 @@ function PFH.CreateSettingsPanel()
       return container:GetData()
     end
 
-    local tooltip = "Shows the Player Frame and Cooldown Manager when a target is available.\n\nSoft Target requires Action Targeting enabled in Game Settings."
+    local tooltip = "Shows the Player Frame and Cooldown Manager when a target is available.\n\nSoft Target works with GamePad-only targeting or with Action Targeting enabled for keyboard and mouse."
 
     if Settings.CreateDropdown and Settings.CreateControlTextContainer then
       Settings.CreateDropdown(category, setting, GetTargetModeOptions, tooltip)
@@ -800,6 +805,12 @@ function PFH.CreateOptionsPanel()
 end
 
 function PFH.OpenOptions()
+  if IS_FOREVER_BETA then
+    print("|cFF00FF00PlayerFrameHider:|r Settings UI is disabled on WoW Forever beta.")
+    print("Use /pfh list, /pfh get <setting>, or /pfh set <setting> <value>.")
+    return
+  end
+
   -- Prefer modern Settings UI when available.
   if Settings and Settings.OpenToCategory and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnCategory then
     local category = PFH.CreateSettingsPanel and PFH.CreateSettingsPanel() or PFH.settingsCategory
@@ -820,8 +831,137 @@ end
 
 SLASH_PlayerFrameHider1 = "/pfh"
 SLASH_PlayerFrameHider2 = "/playerframehider"
-SlashCmdList["PlayerFrameHider"] = function()
-  PFH.OpenOptions()
+local function FindDefaultKey(input)
+  local normalizedInput = string.lower(input or "")
+  for key in pairs(DEFAULTS) do
+    if string.lower(key) == normalizedInput then
+      return key
+    end
+  end
+end
+
+local function RunForeverCommand(message)
+  local command, arguments = (message or ""):match("^(%S+)%s*(.-)%s*$")
+  command = string.lower(command or "help")
+
+  if command == "help" then
+    print("|cFF00FF00PlayerFrameHider:|r /pfh list | /pfh get <setting> | /pfh set <setting> <value>")
+    return
+  end
+
+  if command == "list" then
+    local keys = {}
+    for key in pairs(DEFAULTS) do
+      keys[#keys + 1] = key
+    end
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+      print(key .. " = " .. tostring(PFH_DB[key]))
+    end
+    return
+  end
+
+  local keyInput, valueInput = arguments:match("^(%S+)%s*(.-)%s*$")
+  local settingInput = arguments
+  if command == "get" or command == "set" then
+    settingInput = keyInput
+  end
+  local key = FindDefaultKey(settingInput)
+
+  if command == "get" then
+    if not key then
+      print("Unknown setting. Use /pfh list to see available settings.")
+      return
+    end
+    print(key .. " = " .. tostring(PFH_DB[key]))
+    return
+  end
+
+  if command ~= "set" or not key or valueInput == "" then
+    print("Usage: /pfh get <setting> | /pfh set <setting> <value>")
+    return
+  end
+
+  local defaultValue = DEFAULTS[key]
+  local value
+  if type(defaultValue) == "boolean" then
+    local normalizedValue = string.lower(valueInput)
+    if normalizedValue == "true" or normalizedValue == "on" or normalizedValue == "1" then
+      value = true
+    elseif normalizedValue == "false" or normalizedValue == "off" or normalizedValue == "0" then
+      value = false
+    else
+      print("Use true/false or on/off for this setting.")
+      return
+    end
+  elseif type(defaultValue) == "number" then
+    value = tonumber(valueInput)
+    if not value then
+      print("This setting requires a number.")
+      return
+    end
+  else
+    print("This setting cannot be changed from chat.")
+    return
+  end
+
+  PFH_DB[key] = value
+  PFH.ApplyDefaults()
+  if key == "hoverRevealOutOfCombat" and not PFH_DB.hoverRevealOutOfCombat then
+    if PFH.state.hoverHideTimer then
+      PFH.state.hoverHideTimer:Cancel()
+      PFH.state.hoverHideTimer = nil
+    end
+    PFH.state.hoverOverride = false
+  elseif key == "objectiveHoverReveal" and not PFH_DB.objectiveHoverReveal then
+    if PFH.state.objectiveHoverHideTimer then
+      PFH.state.objectiveHoverHideTimer:Cancel()
+      PFH.state.objectiveHoverHideTimer = nil
+    end
+    PFH.state.objectiveHoverOverride = false
+  elseif key == "buffHoverReveal" and not PFH_DB.buffHoverReveal then
+    if PFH.state.buffHoverHideTimer then
+      PFH.state.buffHoverHideTimer:Cancel()
+      PFH.state.buffHoverHideTimer = nil
+    end
+    PFH.state.buffHoverOverride = false
+  elseif key == "actionBarHoverReveal" and not PFH_DB.actionBarHoverReveal then
+    if PFH.state.actionBarHoverHideTimer then
+      PFH.state.actionBarHoverHideTimer:Cancel()
+      PFH.state.actionBarHoverHideTimer = nil
+    end
+    PFH.state.actionBarHoverOverride = false
+  end
+
+  if key == "showWhenHealthBelow100" and not PFH_DB.showWhenHealthBelow100 then
+    PFH.StopHurtTicker()
+    PFH.state.hurtUntil = 0
+    PFH.state.hurtPlayerUntil = 0
+  end
+
+  if key == "combatHoldSeconds" and PFH.CancelHold then
+    PFH.CancelHold("player")
+    PFH.CancelHold("widgets")
+  end
+  if key == "showCooldownManagerWhenActive" and PFH.EnsureCooldownWatcher and PFH.StopCooldownWatcher then
+    if PFH_DB.showCooldownManagerWhenActive then
+      PFH.EnsureCooldownWatcher()
+    else
+      PFH.StopCooldownWatcher()
+    end
+  end
+
+  PFH.ResolveWidgetFramesOnce()
+  PFH.Apply()
+  print(key .. " = " .. tostring(PFH_DB[key]))
+end
+
+SlashCmdList["PlayerFrameHider"] = function(message)
+  if IS_FOREVER_BETA then
+    RunForeverCommand(message)
+  else
+    PFH.OpenOptions()
+  end
 end
 
 -- Global handler for the AddOn Compartment button. Kept

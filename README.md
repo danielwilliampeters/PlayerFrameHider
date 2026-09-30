@@ -22,7 +22,8 @@ A World of Warcraft addon that automatically manages the visibility of the Playe
 
 ## Usage
 
-- Open the options panel via `/pfh`, `/playerframehider`, or through the in-game Settings under AddOns → Player Frame Hider.
+- On Retail, open the options panel via `/pfh`, `/playerframehider`, or in-game Settings under AddOns → Player Frame Hider.
+- On WoW Forever beta, use `/pfh list`, `/pfh get <setting>`, and `/pfh set <setting> <value>` to configure the addon without registering a Settings category.
 - Use the **Hidden alpha** slider to control how transparent the player frame becomes when hidden.
 - Toggle visibility rules, such as **Show in combat**, **Combat hold (seconds)**, **Show with target**, **Show on health change**, **Hover to reveal (out of combat)**, and **Always show in instances**.
 - In the **Action Bars** section, you can:
