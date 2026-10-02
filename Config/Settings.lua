@@ -4,7 +4,6 @@ local PFH = PlayerFrameHider
 local state = PFH.state
 
 local DEFAULTS = PFH.DEFAULTS
-local IS_FOREVER_BETA = select(4, GetBuildInfo()) == 16001
 
 -- Guard to prevent re-entrant Settings callbacks when values
 -- are updated programmatically.
@@ -19,16 +18,17 @@ local ENABLE_HOVER_REVEAL_OBJECTIVES = false
 local ENABLE_BUFF_ALPHA = false
 local ENABLE_HOVER_REVEAL_BUFFS = false
 
+-- This frame is supplied by the WoW Forever gamepad action-bar UI.
+local function HasGamepadActionBars()
+  return _G.GamepadMainActionBarFrame ~= nil
+end
+
 -- =========================================================
 -- Settings panel (Blizzard-native vertical Settings layout)
 -- =========================================================
 
 -- Create (and cache) the Retail Settings panel.
 function PFH.CreateSettingsPanel()
-  if IS_FOREVER_BETA then
-    return nil
-  end
-
   if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnCategory) then
     return nil
   end
@@ -753,6 +753,14 @@ function PFH.CreateSettingsPanel()
       "Hides Action Bar 8 by default. Shown again when you move your mouse over it."
     )
 
+    if HasGamepadActionBars() then
+      AddCheckbox(
+        "hideGamepadActionBars",
+        "Hide Gamepad Action Bars",
+        "Hides the gamepad action bars by default. Shows them while you are in combat or have a target."
+      )
+    end
+
     if ENABLE_HOVER_REVEAL_ACTION_BARS then
       AddCheckbox(
         "actionBarHoverReveal",
@@ -805,12 +813,6 @@ function PFH.CreateOptionsPanel()
 end
 
 function PFH.OpenOptions()
-  if IS_FOREVER_BETA then
-    print("|cFF00FF00PlayerFrameHider:|r Settings UI is disabled on WoW Forever beta.")
-    print("Use /pfh list, /pfh get <setting>, or /pfh set <setting> <value>.")
-    return
-  end
-
   -- Prefer modern Settings UI when available.
   if Settings and Settings.OpenToCategory and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnCategory then
     local category = PFH.CreateSettingsPanel and PFH.CreateSettingsPanel() or PFH.settingsCategory
@@ -957,11 +959,16 @@ local function RunForeverCommand(message)
 end
 
 SlashCmdList["PlayerFrameHider"] = function(message)
-  if IS_FOREVER_BETA then
-    RunForeverCommand(message)
-  else
-    PFH.OpenOptions()
+  local command = (message or ""):match("^(%S+)")
+  if command then
+    command = string.lower(command)
+    if command == "help" or command == "list" or command == "get" or command == "set" then
+      RunForeverCommand(message)
+      return
+    end
   end
+
+  PFH.OpenOptions()
 end
 
 -- Global handler for the AddOn Compartment button. Kept

@@ -408,6 +408,7 @@ function PFH.AnyActionBarHideEnabled()
     or PFH_DB.hideActionBar6
     or PFH_DB.hideActionBar7
     or PFH_DB.hideActionBar8
+    or PFH_DB.hideGamepadActionBars
     or PFH_DB.hidePetBar
     or PFH_DB.hideStanceBar
     or PFH_DB.hideBagsBar

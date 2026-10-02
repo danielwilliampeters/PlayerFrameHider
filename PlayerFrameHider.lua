@@ -27,6 +27,7 @@ PFH.DEFAULTS = {
   hideActionBar6 = false,
   hideActionBar7 = false,
   hideActionBar8 = false,
+  hideGamepadActionBars = false,
   hidePetBar = false,
   hideStanceBar = false,
   hideBagsBar = true,
@@ -200,6 +201,7 @@ function PFH.ApplyDefaults()
   ApplyDefault("hideActionBar6", D.hideActionBar6)
   ApplyDefault("hideActionBar7", D.hideActionBar7)
   ApplyDefault("hideActionBar8", D.hideActionBar8)
+  ApplyDefault("hideGamepadActionBars", D.hideGamepadActionBars)
   ApplyDefault("hidePetBar", D.hidePetBar)
   ApplyDefault("hideStanceBar", D.hideStanceBar)
   ApplyDefault("hideBagsBar", D.hideBagsBar)
@@ -491,6 +493,13 @@ local function ResolveActionBarFrames()
     AddActionBarFrame(frames, stance, "stance")
   end
 
+  -- Gamepad action buttons live inside this container on WoW Forever.
+  -- Fade the parent so every page/unit button is controlled together.
+  local gamepad = _G.GamepadMainActionBarFrame
+  if gamepad and gamepad.GetAlpha then
+    AddActionBarFrame(frames, gamepad, "gamepad")
+  end
+
   -- Add individual buttons for hover detection but NOT alpha control (alphaTarget = false)
   -- This allows hover-to-reveal without conflicting with Blizzard's proc/highlight system
   for i = 1, 12 do
@@ -713,6 +722,14 @@ local function ShouldShowGenericActionBar(hideKey)
   end
 
   return false
+end
+
+local function ShouldShowGamepadActionBars()
+  if not PFH_DB.enabled or not PFH_DB.hideGamepadActionBars then
+    return true
+  end
+
+  return PFH.IsInCombat() or PFH.HasTargetLike()
 end
 
 local function ShouldShowActionBar2()
@@ -1305,6 +1322,8 @@ local function ApplyActionBars()
         wantVisible = ShouldShowPetBar()
       elseif info.kind == "stance" then
         wantVisible = ShouldShowStanceBar()
+      elseif info.kind == "gamepad" then
+        wantVisible = ShouldShowGamepadActionBars()
       end
       if info.alphaTarget ~= false then
         SetSimpleFrameVisible(info.frame, wantVisible)
