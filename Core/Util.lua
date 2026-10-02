@@ -225,6 +225,7 @@ function PFH.HasTargetLike()
 end
 
 -- Return true when a unit exists and is below max health.
+-- Uses pcall so tainted/secret value comparisons fail safely.
 function PFH.IsUnitHealthBelowMax(unit)
   if type(unit) ~= "string" or unit == "" then
     return false
@@ -232,17 +233,26 @@ function PFH.IsUnitHealthBelowMax(unit)
   if not UnitExists or not UnitHealth or not UnitHealthMax then
     return false
   end
-  if not UnitExists(unit) then
+
+  local ok, belowMax = pcall(function(checkUnit)
+    if not UnitExists(checkUnit) then
+      return false
+    end
+
+    local maxHealth = UnitHealthMax(checkUnit) or 0
+    if maxHealth <= 0 then
+      return false
+    end
+
+    local currentHealth = UnitHealth(checkUnit) or 0
+    return (currentHealth < maxHealth)
+  end, unit)
+
+  if not ok then
     return false
   end
 
-  local maxHealth = UnitHealthMax(unit) or 0
-  if maxHealth <= 0 then
-    return false
-  end
-
-  local currentHealth = UnitHealth(unit) or 0
-  return currentHealth < maxHealth
+  return belowMax and true or false
 end
 -- Return true if the current instance/zone is one where the
 -- addon should treat "always show in instance" as relevant.
