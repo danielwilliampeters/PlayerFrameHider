@@ -25,20 +25,36 @@ local function ApplyFromWidget()
   end)
 end
 
+local function TryGetMethod(target, methodName)
+  if not target then
+    return nil
+  end
+
+  if type(target) == "table" then
+    local method = rawget(target, methodName)
+    if type(method) == "function" then
+      return method
+    end
+  end
+
+  local ok, method = pcall(function()
+    return target[methodName]
+  end)
+
+  if ok and type(method) == "function" then
+    return method
+  end
+
+  return nil
+end
+
 -- Scan the global table for a frame whose global name contains a hint.
 local function FindFrameByNameHint(hint)
   for k, v in pairs(_G) do
-    if type(k) == "string" and type(v) == "table" then
-      local ok, isMatch = pcall(function()
-        -- Some global tables are forbidden/restricted and will error
-        -- when indexed; wrap access in pcall so we can safely skip them.
-        if v.GetObjectType and v.IsShown and k:find(hint, 1, true) then
-          return true
-        end
-        return false
-      end)
-
-      if ok and isMatch then
+    if type(k) == "string" and type(v) == "table" and k:find(hint, 1, true) then
+      local getObjectType = TryGetMethod(v, "GetObjectType")
+      local isShown = TryGetMethod(v, "IsShown")
+      if getObjectType and isShown then
         return v
       end
     end

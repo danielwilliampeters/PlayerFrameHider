@@ -311,6 +311,7 @@ local function ShouldShowPlayerFrame()
 
   if PFH_DB.showInCombat and PFH.IsInCombat() then return true end
   if PFH.HasTargetLike() then return true end
+
   local hurtUntil = state.hurtPlayerUntil or state.hurtUntil or 0
   if mode == 2 and GetTime() < hurtUntil then return true end
 
@@ -344,8 +345,8 @@ local function ShouldShowPetFrame()
   -- for health-based auto-show in mode 2.
   if PFH_DB.showInCombat and PFH.IsInCombat() then return true end
   if PFH.HasTargetLike() then return true end
-
   if mode == 2 then
+
     local hurtUntil = state.hurtPetUntil or 0
     if GetTime() < hurtUntil then return true end
   end
@@ -1446,7 +1447,7 @@ local function EnsureHurtTicker()
 
     local now = GetTime()
 
-    local playerEnabled = PFH_DB.showWhenHealthBelow100 and true or false
+    local playerEnabled = (tonumber(PFH_DB.playerFrameMode) == 2)
     local petEnabled = (tonumber(PFH_DB.petFrameMode) == 2)
 
     local playerExpired = (not playerEnabled) or (now >= (state.hurtPlayerUntil or state.hurtUntil or 0))
@@ -1533,25 +1534,61 @@ local function HookOnce()
 
   Apply()
 
+  local function TryGetMethod(target, methodName)
+    if not target then return nil end
+
+    if type(target) == "table" then
+      local method = rawget(target, methodName)
+      if type(method) == "function" then
+        return method
+      end
+    end
+
+    local ok, method = pcall(function()
+      return target[methodName]
+    end)
+
+    if ok and type(method) == "function" then
+      return method
+    end
+
+    return nil
+  end
+
+  local function TryGetObjectType(target)
+    local getter = TryGetMethod(target, "GetObjectType")
+    if not getter then
+      return nil
+    end
+
+    local ok, objType = pcall(getter, target)
+    if ok then
+      return objType
+    end
+
+    return nil
+  end
+
   local frames = ResolveActionBarFrames()
   local function HookHoverForFrames(list)
     if not list then return end
     for _, info in ipairs(list) do
       local f = info.frame
       local kind = info.kind
-      if f and f.HookScript and not f.PFH_ActionBarHooked then
+      local hookScript = TryGetMethod(f, "HookScript")
+      if f and hookScript and not f.PFH_ActionBarHooked then
         f.PFH_ActionBarHooked = true
-        local objType = f.GetObjectType and f:GetObjectType() or nil
+        local objType = TryGetObjectType(f)
 
         if objType ~= "Button" and objType ~= "CheckButton" then
           if f.EnableMouse then f:EnableMouse(true) end
           if f.SetMouseMotionEnabled then f:SetMouseMotionEnabled(true) end
         end
 
-        pcall(f.HookScript, f, "OnEnter", function()
+        pcall(hookScript, f, "OnEnter", function()
           OnActionBarEnter(kind)
         end)
-        pcall(f.HookScript, f, "OnLeave", function()
+        pcall(hookScript, f, "OnLeave", function()
           OnActionBarLeave(kind)
         end)
       end

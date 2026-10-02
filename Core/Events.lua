@@ -111,37 +111,25 @@ end
 
 local function OnUnitHealthChanged(_, unit)
   local touched = false
-  local inCombat = PFH.IsInCombat and PFH.IsInCombat() or false
 
   if unit == "player" then
     touched = true
 
-    if PFH_DB.playerFrameMode == 2 and PFH_DB.showWhenHealthBelow100 then
-      if inCombat then
-        PFH.MarkHurt("player")
-        PFH.EnsureHurtTicker()
-      elseif PFH.IsUnitHealthBelowMax and PFH.IsUnitHealthBelowMax("player") then
-        PFH.MarkHurt("player")
-        PFH.EnsureHurtTicker()
-      else
-        state.hurtUntil = 0
-        state.hurtPlayerUntil = 0
-      end
+    if PFH_DB.playerFrameMode == 2 then
+      PFH.MarkHurt("player")
+      PFH.EnsureHurtTicker()
+    else
+      state.hurtUntil = 0
+      state.hurtPlayerUntil = 0
     end
   elseif unit == "pet" then
     touched = true
 
     if PFH_DB.petFrameMode == 2 then
-      local petInCombat = inCombat or (UnitAffectingCombat and UnitAffectingCombat("pet") and true or false)
-      if petInCombat then
-        PFH.MarkHurt("pet")
-        PFH.EnsureHurtTicker()
-      elseif PFH.IsUnitHealthBelowMax and PFH.IsUnitHealthBelowMax("pet") then
-        PFH.MarkHurt("pet")
-        PFH.EnsureHurtTicker()
-      else
-        state.hurtPetUntil = 0
-      end
+      PFH.MarkHurt("pet")
+      PFH.EnsureHurtTicker()
+    else
+      state.hurtPetUntil = 0
     end
   end
 

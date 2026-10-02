@@ -147,6 +147,43 @@ local function HookDamageMeterOnce()
 
   if PFH.Apply then PFH.Apply() end
 
+  local function TryGetMethod(target, methodName)
+    if not target then
+      return nil
+    end
+
+    if type(target) == "table" then
+      local method = rawget(target, methodName)
+      if type(method) == "function" then
+        return method
+      end
+    end
+
+    local ok, method = pcall(function()
+      return target[methodName]
+    end)
+
+    if ok and type(method) == "function" then
+      return method
+    end
+
+    return nil
+  end
+
+  local function TryGetObjectType(target)
+    local getter = TryGetMethod(target, "GetObjectType")
+    if not getter then
+      return nil
+    end
+
+    local ok, objType = pcall(getter, target)
+    if ok then
+      return objType
+    end
+
+    return nil
+  end
+
   local function HookHover(target)
     if not target or target.PFH_DamageMeterHoverHooked then
       return
@@ -154,7 +191,7 @@ local function HookDamageMeterOnce()
 
     target.PFH_DamageMeterHoverHooked = true
 
-    local objType = target.GetObjectType and target:GetObjectType() or nil
+    local objType = TryGetObjectType(target)
 
     if objType ~= "Button" and objType ~= "CheckButton" then
       if target.EnableMouse then
@@ -165,9 +202,10 @@ local function HookDamageMeterOnce()
       end
     end
 
-    if type(target.HookScript) == "function" then
-      pcall(target.HookScript, target, "OnEnter", OnDamageMeterEnter)
-      pcall(target.HookScript, target, "OnLeave", OnDamageMeterLeave)
+    local hookScript = TryGetMethod(target, "HookScript")
+    if hookScript then
+      pcall(hookScript, target, "OnEnter", OnDamageMeterEnter)
+      pcall(hookScript, target, "OnLeave", OnDamageMeterLeave)
     end
   end
 

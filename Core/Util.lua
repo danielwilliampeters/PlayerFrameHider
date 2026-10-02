@@ -225,34 +225,12 @@ function PFH.HasTargetLike()
 end
 
 -- Return true when a unit exists and is below max health.
--- Uses pcall so tainted/secret value comparisons fail safely.
+-- Retail can mark UnitHealth() as a secret value when execution is tainted,
+-- making direct comparisons unsafe even under pcall/securecall wrappers.
+-- This helper is intentionally disabled and returns false; Auto mode health
+-- reveal is handled in Core/Events.lua using event-driven hurt windows.
 function PFH.IsUnitHealthBelowMax(unit)
-  if type(unit) ~= "string" or unit == "" then
-    return false
-  end
-  if not UnitExists or not UnitHealth or not UnitHealthMax then
-    return false
-  end
-
-  local ok, belowMax = pcall(function(checkUnit)
-    if not UnitExists(checkUnit) then
-      return false
-    end
-
-    local maxHealth = UnitHealthMax(checkUnit) or 0
-    if maxHealth <= 0 then
-      return false
-    end
-
-    local currentHealth = UnitHealth(checkUnit) or 0
-    return (currentHealth < maxHealth)
-  end, unit)
-
-  if not ok then
-    return false
-  end
-
-  return belowMax and true or false
+  return false
 end
 -- Return true if the current instance/zone is one where the
 -- addon should treat "always show in instance" as relevant.
