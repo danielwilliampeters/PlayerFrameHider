@@ -109,23 +109,37 @@ local function OnTargetOrZoneChanged()
   PFH.Apply()
 end
 
-local function OnUnitHealthChanged(event, unit)
-  if event ~= "UNIT_HEALTH" then
-    return
-  end
+local function OnUnitHealthChanged(_, unit)
+  local touched = false
 
   if unit == "player" then
-    if PFH_DB.playerFrameMode ~= 2 then return end
-    PFH.MarkHurt("player")
+    touched = true
+
+    if PFH_DB.playerFrameMode == 2 and PFH_DB.showWhenHealthBelow100 then
+      if PFH.IsUnitHealthBelowMax and PFH.IsUnitHealthBelowMax("player") then
+        PFH.MarkHurt("player")
+        PFH.EnsureHurtTicker()
+      else
+        state.hurtUntil = 0
+        state.hurtPlayerUntil = 0
+      end
+    end
   elseif unit == "pet" then
-    if PFH_DB.petFrameMode ~= 2 then return end
-    PFH.MarkHurt("pet")
-  else
-    return
+    touched = true
+
+    if PFH_DB.petFrameMode == 2 then
+      if PFH.IsUnitHealthBelowMax and PFH.IsUnitHealthBelowMax("pet") then
+        PFH.MarkHurt("pet")
+        PFH.EnsureHurtTicker()
+      else
+        state.hurtPetUntil = 0
+      end
+    end
   end
 
-  PFH.EnsureHurtTicker()
-  PFH.Apply()
+  if touched then
+    PFH.Apply()
+  end
 end
 
 local function OnObjectiveTrackerChanged()

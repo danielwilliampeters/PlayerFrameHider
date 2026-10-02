@@ -224,6 +224,26 @@ function PFH.HasTargetLike()
   return false
 end
 
+-- Return true when a unit exists and is below max health.
+function PFH.IsUnitHealthBelowMax(unit)
+  if type(unit) ~= "string" or unit == "" then
+    return false
+  end
+  if not UnitExists or not UnitHealth or not UnitHealthMax then
+    return false
+  end
+  if not UnitExists(unit) then
+    return false
+  end
+
+  local maxHealth = UnitHealthMax(unit) or 0
+  if maxHealth <= 0 then
+    return false
+  end
+
+  local currentHealth = UnitHealth(unit) or 0
+  return currentHealth < maxHealth
+end
 -- Return true if the current instance/zone is one where the
 -- addon should treat "always show in instance" as relevant.
 function PFH.IsRelevantInstance()
@@ -458,4 +478,3 @@ function PFH.IsWorldMapOpen()
   end
   return false
 end
-
