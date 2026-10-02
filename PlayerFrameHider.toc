@@ -1,6 +1,6 @@
 ## Interface: 120100, 16001
-## Title: Player Frame Hider
-## Notes: Toggle visibility rules for the PlayerFrame and cooldowns/buffs. /pfh
+## Title: Dynamic UI Hider (Player Frame Hider)
+## Notes: Dynamically hide and reveal Blizzard UI elements including player frames, action bars, buffs, objectives and cooldowns. Configure with /pfh.
 ## Author: Daniel Peters
 ## Version: 16
 ## SavedVariables: PFH_DB
